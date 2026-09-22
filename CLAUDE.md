@@ -568,15 +568,24 @@ its provider, because `podman-compose` does not implement
 which is what orders the schema one-shot ahead of the API.
 
 **Zero inbound ports.** `cloudflared` runs inside the stack and dials out, so
-public traffic returns down that connection. The box holds no certificate and
-the host firewall answers on SSH only. Do not add a `ports:` mapping to any prod
-service: the firewall expects nothing there, so a published port is a hole
-nobody is watching.
+public traffic returns down that connection. The box holds no certificate, and
+the OVH edge firewall now refuses everything inbound: established TCP, a few UDP
+source ports and ICMP are all that pass, so the public address answers on
+nothing, SSH included. Do not add a `ports:` mapping to any prod service: the
+firewall expects nothing there, so a published port is a hole nobody is
+watching.
 
 **Images on GHCR**, built by GitHub-hosted runners with Buildx and tagged by
 commit SHA. Podman runs OCI images and does not care what built them.
 
-**The deploy is an SSH session**: render `.env` from the GitHub Environment,
+**The deploy is an SSH session over the NetBird mesh.** Since the edge was
+closed there is no route to port 22 on the public address, so the job enrols the
+runner as an ephemeral peer in the `ci-runners` group and talks to the box's
+NetBird IP (`vars.DEPLOY_HOST`). That group is defined in the homelab terraform,
+not here, and reaches tcp/22 on this one host and nothing else; `bidirectional`
+is off, so the box has no path back to the runner. The peer deletes itself
+minutes after the job ends, which is why the workflow has no teardown step. Then
+the session does what it always did: render `.env` from the GitHub Environment,
 pipe it and the compose file to the box, `podman compose pull && up -d`, then
 poll the API's health until it is healthy or fail the job. `up -d` returns as
 soon as the containers exist, which says nothing about whether the API can reach

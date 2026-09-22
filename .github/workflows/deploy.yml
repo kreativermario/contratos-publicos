@@ -1,8 +1,9 @@
 name: Deploy
 
 # Build on GitHub-hosted runners, push to GHCR, deploy over SSH to one VPS
-# running rootless podman. The box has no inbound port but SSH: public traffic
-# arrives through a Cloudflare tunnel that dials out from inside the stack.
+# running rootless podman. The box has NO inbound port at all: public traffic
+# arrives through a Cloudflare tunnel that dials out from inside the stack, and
+# this job reaches SSH across the NetBird mesh the box already dials out to.
 #
 # No build agent, no registry mirror, no orchestrator on the box. Deploying is:
 # copy two files, pull three pinned tags, `podman compose up -d`.
@@ -117,6 +118,10 @@ jobs:
       packages: read
 
     env:
+      # The box's NetBird address, not its public one, which answers nothing
+      # since the provider edge was closed. An IP rather than a magic-DNS name
+      # on purpose: the runner is given no NetBird resolver, so a name would be
+      # one more thing to be broken at 3am.
       DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
       DEPLOY_USER: ${{ vars.DEPLOY_USER }}
       DEPLOY_PORT: ${{ vars.DEPLOY_PORT || '22' }}
@@ -139,6 +144,54 @@ jobs:
           # path must not do. Get the value with `ssh-keyscan -t ed25519 <host>`
           # once, from somewhere you trust, and paste it into the secret.
           printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      # The way in. The OVH edge firewall accepts only established TCP, a few UDP
+      # source ports and ICMP, so the public address stopped answering on 22 and
+      # a plain ssh to it now hangs until the job times out.
+      #
+      # The runner enrols as an EPHEMERAL peer in the ci-runners group, whose one
+      # policy is tcp/22 to this VPS and nothing else: no route to the homelab,
+      # no internal resolver, no return path (homelab-terraform, netbird/
+      # policies.tf -> ci_deploy_ssh). NetBird deletes the peer minutes after the
+      # runner is destroyed, which is why there is no teardown step here.
+      - name: Join the NetBird mesh
+        env:
+          NETBIRD_SETUP_KEY: ${{ secrets.NETBIRD_SETUP_KEY }}
+          # Self-hosted management plane, so the client has to be told where to
+          # look; the default points at NetBird's cloud.
+          NETBIRD_MANAGEMENT_URL: ${{ vars.NETBIRD_MANAGEMENT_URL }}
+          # A variable rather than a literal, because the thing that breaks this
+          # is a client newer than the self-hosted management it talks to.
+          NETBIRD_VERSION: ${{ vars.NETBIRD_VERSION || '0.79.0' }}
+        run: |
+          set -euo pipefail
+          # A pinned .deb rather than `curl | sh`: the install script pipes a
+          # remote file into a root shell on a runner that is holding the deploy
+          # key, and it installs whatever shipped this morning.
+          curl -fsSLo /tmp/netbird.deb \
+            "https://github.com/netbirdio/netbird/releases/download/v${NETBIRD_VERSION}/netbird_${NETBIRD_VERSION}_linux_amd64.deb"
+          sudo dpkg -i /tmp/netbird.deb
+          # Via a file, never argv: a setup key on the command line is readable
+          # in `ps` by anything else sharing the runner.
+          umask 077
+          printf '%s' "$NETBIRD_SETUP_KEY" > /tmp/nb.key
+          sudo netbird up --setup-key-file /tmp/nb.key \
+            --management-url "$NETBIRD_MANAGEMENT_URL" \
+            --hostname "gha-${GITHUB_RUN_ID}"
+          rm -f /tmp/nb.key
+          # `up` returns when the daemon has logged in, which is not the same as
+          # the peer being routable, and a first connection through a relay takes
+          # a moment to settle. Wait for the port itself rather than for a line of
+          # `netbird status` output that changes between releases.
+          for _ in $(seq 30); do
+            nc -z -w 2 "$DEPLOY_HOST" "$DEPLOY_PORT" && reachable=yes && break
+            sleep 2
+          done
+          sudo netbird status
+          if [ "${reachable:-no}" != yes ]; then
+            echo "::error::$DEPLOY_HOST:$DEPLOY_PORT unreachable over the mesh after 60s"
+            exit 1
+          fi
 
       # The .env is rewritten on every deploy and is the only place a secret
       # lands on the box.

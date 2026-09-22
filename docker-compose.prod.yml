@@ -9,8 +9,10 @@
 #
 # ZERO INBOUND PORTS. cloudflared dials out to Cloudflare and traffic comes back
 # down that connection, so nothing here publishes a port and nothing on the box
-# holds a certificate. Do not add `ports:` to any service: the host firewall
-# only expects SSH, so a published port is a hole nobody is watching.
+# holds a certificate. The provider edge now refuses inbound traffic outright,
+# SSH included, and the deploy reaches the box over the NetBird mesh instead. Do
+# not add `ports:` to any service: nothing would answer on the public address
+# anyway, and a published port is a hole nobody is watching.
 #
 # Only DATABASE_URL has no default in core/settings.py; everything omitted here
 # falls back to the value declared there.
