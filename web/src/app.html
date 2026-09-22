@@ -15,14 +15,12 @@
 		     time from the environment (default in vite.config.ts).
 
 		     The shell is one file for both languages, so the tags below describe
-		     the Portuguese root and the hreflang pair points at both trees.
-		     `<html lang>` is corrected per route in +layout.svelte. -->
-		<title>Onde Vai Parar</title>
+		     the Portuguese root. `<html lang>`, the canonical link and the hreflang
+		     pair are all per-route and live in +layout.svelte: a canonical baked
+		     here would point every page at the root and fold the site into one
+		     URL in the index. -->
+		<title>Onde Vai Parar: contratos públicos das câmaras municipais</title>
 		<meta name="description" content="Quem recebe o dinheiro das câmaras municipais portuguesas, e com qual procedimento." />
-		<link rel="canonical" href="%sveltekit.env.PUBLIC_SITE_URL%/" />
-		<link rel="alternate" hreflang="pt-PT" href="%sveltekit.env.PUBLIC_SITE_URL%/" />
-		<link rel="alternate" hreflang="en" href="%sveltekit.env.PUBLIC_SITE_URL%/en" />
-		<link rel="alternate" hreflang="x-default" href="%sveltekit.env.PUBLIC_SITE_URL%/" />
 		<meta name="theme-color" content="#fff5d8" />
 
 		<meta property="og:site_name" content="Onde Vai Parar" />
@@ -45,7 +43,7 @@
 		<meta name="twitter:description" content="Quem recebe o dinheiro das câmaras municipais portuguesas, e com qual procedimento." />
 		<meta name="twitter:image" content="%sveltekit.env.PUBLIC_SITE_URL%/og.png" />
 
-		<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧿</text></svg>" />
+		<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 
 		<link rel="preload" href="/fonts/taiPGmVuC4y96PFeqp8sqomI_L8zYK8.woff2" as="font" type="font/woff2" crossorigin />

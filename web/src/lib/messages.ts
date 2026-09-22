@@ -37,6 +37,9 @@ export const locale = (): string => (lang() === 'en' ? 'en-GB' : 'pt-PT');
 const PT: Record<string, string> = {
 	/* ---- shared ------------------------------------------------------- */
 	'common.site': 'Onde Vai Parar',
+	// The brand alone carries no search term. The landing page and the shell
+	// title spell out what the site is; every other page keeps `· common.site`.
+	'common.siteTitle': 'Onde Vai Parar: contratos públicos das câmaras municipais',
 	'common.description':
 		'Quem recebe o dinheiro das câmaras municipais portuguesas, e com qual procedimento.',
 	'common.na': 'N/A',
@@ -226,6 +229,8 @@ const PT: Record<string, string> = {
 	'muni.noDataBody':
 		'Não há contratos carregados para este município. Volta mais tarde, os dados são atualizados a partir do registo público de contratos.',
 	'muni.fallbackName': 'Município',
+	'muni.metaDescription':
+		'Contratos públicos de {name}: quem recebe o dinheiro, quanto foi por ajuste direto e que empresas ganham mais.',
 	'muni.tab.overview': 'Visão geral',
 	'muni.tab.map': 'Mapa',
 	'muni.tab.network': 'Rede',
@@ -684,6 +689,7 @@ const PT: Record<string, string> = {
 const EN: Record<string, string> = {
 	/* ---- shared ------------------------------------------------------- */
 	'common.site': 'Onde Vai Parar',
+	'common.siteTitle': 'Onde Vai Parar: Portuguese municipal public contracts',
 	'common.description':
 		'Who gets the money from Portuguese municipal councils, and under which procedure.',
 	'common.na': 'N/A',
@@ -873,6 +879,8 @@ const EN: Record<string, string> = {
 	'muni.noDataBody':
 		'No contracts are loaded for this council. Come back later: the data is refreshed from the public contract register.',
 	'muni.fallbackName': 'Council',
+	'muni.metaDescription':
+		'Public contracts in {name}: who gets the money, how much skipped a tender and which firms win most.',
 	'muni.tab.overview': 'Overview',
 	'muni.tab.map': 'Map',
 	'muni.tab.network': 'Network',

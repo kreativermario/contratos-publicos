@@ -26,9 +26,16 @@ permissions:
   contents: read
 
 jobs:
+  # Gate first. Building three images and shipping them to the box is a long
+  # way to find out a router signature drifted, and the tests take a minute.
+  tests:
+    name: Tests
+    uses: ./.github/workflows/tests.yml
+
   build-and-push:
     name: Build and push images
     runs-on: ubuntu-latest
+    needs: tests
     timeout-minutes: 30
     permissions:
       contents: read

@@ -8,7 +8,7 @@
 </script>
 
 <svelte:head>
-	<title>{t('common.site')}</title>
+	<title>{t('common.siteTitle')}</title>
 	<meta name="description" content={t('common.description')} />
 </svelte:head>
 

@@ -6,3 +6,6 @@ node_modules/
 web/.svelte-kit/
 web/build/
 __pycache__/
+
+# editable installs (pip install -e ./core ./api ./ingest, as CI does)
+*.egg-info/

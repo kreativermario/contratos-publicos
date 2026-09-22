@@ -110,6 +110,10 @@ keys that only ever arrive from the API and are looked up through a template
 string. It is wired into `npm run check`, because `svelte-check` reads types,
 not strings, and would never notice.
 
+`web/scripts/check-seo.mjs` rides the same hook, over `$lib/seo.ts`: node 24
+strips the types, so the check imports the module the site actually ships
+rather than a copy of its regex.
+
 **What is never translated:** contract descriptions, supplier names, buyer
 names, procedure names, council names and CPV labels. They are quoted verbatim
 from IMPIC and are rendered verbatim, in Portuguese, on both trees.
@@ -398,6 +402,19 @@ the amount and the unit separately; the unit goes in a `.unit` span (Archivo
   forge it, while `X-Forwarded-For` is *appended* to, and with
   `real_ip_recursive` a client that sends one can walk the limiter off any
   address it likes.
+- **One static shell cannot carry a canonical link.** `app.html` is served for
+  every route, so a canonical baked there told the index that `/panorama`,
+  every município and every empresa page were all the same URL as `/`. The
+  canonical and the hreflang pair are per route, in `+layout.svelte`, from
+  `seoUrls()`. The og tags stay in the shell: unfurlers never run JS, and one
+  preview for the whole site is the deliberate trade.
+- The favicon is `static/favicon.svg`, the poster gauge, and
+  `apple-touch-icon.png` is that same file rasterised at 180px. They were an
+  emoji data URI and an unrelated red gauge; a browser tab and an iOS home
+  screen showing two different marks is the one place the brand is seen most.
+- The default `PUBLIC_SITE_URL` in `vite.config.ts` is the **`.pt`**. A bare
+  `npm run build` with the `.com` there baked the redirecting domain into every
+  canonical, the sitemap and robots.txt.
 - **BSD sed has no `\b`.** A word-boundary pattern silently no-ops on macOS
   rather than erroring, so a bulk rename looks like it worked and leaves every
   reference behind. Use literal patterns, or `[[:<:]]` / `[[:>:]]`.
@@ -550,6 +567,14 @@ docker compose --profile tools run --rm --entrypoint python ingest \
   /app/tests/core/test_settings.py
 cd web && npm run check        # svelte-check plus the message parity check
 ```
+
+`.github/workflows/tests.yml` runs every one of those on CI, and **the deploy
+job needs it**: `tests` is a `workflow_call` job that `build-and-push` depends
+on, so nothing reaches GHCR or the VPS from a red suite. The Python half needs
+no database, only a syntactically valid `DATABASE_URL`, because `Settings`
+demands one and nothing in the suite connects. It has no `push: main` trigger
+of its own; the deploy already carries it on main, and a second copy would just
+run the same minute twice.
 
 Every container is rootless with a read-only root filesystem, all capabilities
 dropped and `no-new-privileges`. nginx speaks plain HTTP on 8080 in both

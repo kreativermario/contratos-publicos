@@ -1,0 +1,78 @@
+name: tests
+
+# The seams nothing else watches. A FastAPI router is imported for the first
+# time when a request arrives, and `svelte-check` reads types rather than
+# strings, so without this a drifted signature 500s every contracts request in
+# production and a missing message key prints itself on the page.
+#
+# Callable, because the deploy gates on it: a green run is what earns a push to
+# the VPS. That is also why there is no `push: main` trigger here, which would
+# only run the same suite twice on every merge.
+on:
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    name: core, api, ingest
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      # No test here touches a database: the router test binds signatures, the
+      # rest are pure functions. Settings still demands the URL, so give it one
+      # that is syntactically valid and connects to nothing.
+      DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ci
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Install the three packages
+        run: pip install -e ./core -e ./api -e ./ingest
+
+      # Each file is its own runner under `__main__`; there is no pytest here
+      # and adding one would only wrap what already runs. Loop so one failure
+      # does not hide the others, and fail the job at the end.
+      - name: Run the test files
+        run: |
+          set -uo pipefail
+          rc=0
+          for f in core/tests/test_*.py api/tests/test_*.py ingest/tests/test_*.py; do
+            echo "::group::$f"
+            python "$f" || rc=1
+            echo "::endgroup::"
+          done
+          exit $rc
+
+  web:
+    name: web
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - run: npm ci
+
+      # svelte-check, then the two string checks it cannot see: message parity
+      # across both languages, and the canonical/hreflang pair.
+      - run: npm run check
+
+      # The build is the last gate: it is what the image runs, and a prerender
+      # failure in the sitemap only shows up here.
+      - run: npm run build
+        env:
+          PUBLIC_SITE_URL: https://ondevaiparar.pt
