@@ -1,0 +1,127 @@
+# Rendered by the image entrypoint via envsubst into /etc/nginx/conf.d/.
+# Only variables actually present in the environment are substituted, so nginx
+# runtime variables ($remote_addr, $uri, ...) pass through untouched.
+
+# TLS and public routing terminate at the Cloudflare edge, which reaches this
+# container through the cloudflared tunnel on the stack network. Plain HTTP on
+# 8080, no certificate anywhere on the box.
+
+# Both zones key on $binary_remote_addr, and the real_ip module below rewrites
+# $remote_addr before either of them is evaluated. That ordering is the whole
+# point: every request arrives from the cloudflared container, so without it the
+# rate limiter would key the entire internet to one address and hold the door
+# open for the first visitor while shutting it on everyone else.
+limit_req_zone $binary_remote_addr zone=api_rl:10m rate=${NGINX_API_RATE};
+limit_conn_zone $binary_remote_addr zone=api_conn:10m;
+
+# NGINX_TRUSTED_PROXY is the stack network subnet (STACK_SUBNET in the compose),
+# so the only address trusted to speak for a client is the tunnel itself.
+#
+# NGINX_REAL_IP_HEADER is CF-Connecting-IP in production, and that choice
+# matters: Cloudflare's edge always OVERWRITES CF-Connecting-IP with the address
+# it accepted the connection from, so a client cannot forge it. X-Forwarded-For
+# is appended to rather than replaced, so a client that sends one moves its own
+# value up the chain and, with real_ip_recursive, can walk the rate limiter off
+# any address it likes. Locally there is no Cloudflare, so the default there is
+# X-Forwarded-For and the trust list has to be narrowed by hand.
+set_real_ip_from ${NGINX_TRUSTED_PROXY};
+real_ip_header   ${NGINX_REAL_IP_HEADER};
+real_ip_recursive on;
+
+server {
+    listen 8080;
+    server_name _;
+
+    root  /usr/share/nginx/html;
+    index index.html;
+
+    server_tokens off;
+    client_max_body_size   16k;     # nothing here accepts uploads
+    client_body_timeout    10s;
+    client_header_timeout  10s;
+    send_timeout           30s;
+
+    include /etc/nginx/security-headers.conf;
+
+    # Only the two errors a person can actually land on get a designed page.
+    # A human never sees an nginx 404: unknown paths fall through to the SPA,
+    # which renders its own. Everything that does hit a 404 here is a bot, and
+    # bots get 17 bytes, not 3 KB.
+    error_page 429             /erro-429.html;
+    error_page 500 502 503 504 /erro-5xx.html;
+    location = /erro-429.html { internal; include /etc/nginx/security-headers.conf; }
+    location = /erro-5xx.html { internal; include /etc/nginx/security-headers.conf; }
+
+    # A return with a body bypasses error_page, which is how these stay cheap.
+    error_page 400 401 403 404 405 413 414 @nope;
+    location @nope { default_type text/plain; return 404 "not found\n"; }
+
+    # This is a read-only site. Anything else is noise or probing.
+    if ($request_method !~ ^(GET|HEAD)$) { return 405 "method not allowed\n"; }
+
+    # Dotfiles, editor leftovers and VCS dirs: 404, never 403 - a 403 confirms
+    # the path exists. Covers /.env, /.git/config, /.svelte-kit, backups.
+    location ~ (?:^|/)\.                { return 404 ""; access_log off; log_not_found off; }
+    location ~ ~$                       { return 404 ""; access_log off; log_not_found off; }
+    location ~* \.(bak|old|orig|swp|sql|log|ini|conf|yml|yaml|toml)$ {
+        return 404 ""; access_log off; log_not_found off;
+    }
+
+    location = /healthz { return 200 "ok\n"; access_log off; add_header Content-Type text/plain; }
+
+    # Content-hashed bundles never change under the same name.
+    location /_app/immutable/ {
+        include /etc/nginx/security-headers.conf;
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+        try_files $uri =404;
+    }
+
+    # Everything the build does NOT content-hash: fonts, the geometry file, the
+    # preview card, the icons. Without this they fall through to `location /`
+    # and inherit no-cache, so each page load revalidates four woff2 files and
+    # the map tab revalidates 400 KB of geometry, and Cloudflare cannot hold any
+    # of it at the edge. No `immutable`: unlike the bundles these keep their
+    # filename when their content changes (the Bowlby One file has already been
+    # re-saved once), so a year-long pin would strand readers on the old copy.
+    location ~* ^/(fonts/|pt-municipios\.geojson$|og\.png$|favicon\.svg$|apple-touch-icon\.png$) {
+        include /etc/nginx/security-headers.conf;
+        add_header Cache-Control "public, max-age=604800" always;  # a week
+        try_files $uri =404;
+    }
+
+    location /api/ {
+        include /etc/nginx/security-headers.conf;
+        limit_req  zone=api_rl burst=${NGINX_API_BURST} nodelay;
+        limit_conn api_conn 20;
+        limit_req_status 429;
+
+        proxy_pass http://${NGINX_API_UPSTREAM}/;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_connect_timeout 5s;
+        proxy_read_timeout   60s;
+        proxy_buffering on;
+        # only for a dead upstream: a 404 from the API is JSON and must stay JSON
+        proxy_intercept_errors off;
+        # uvicorn announces itself; nothing upstream needs a name of its own
+        proxy_hide_header Server;
+        proxy_hide_header X-Powered-By;
+    }
+
+    # SPA: unknown paths are client-side routes, so the shell is returned.
+    location / {
+        include /etc/nginx/security-headers.conf;
+        add_header Cache-Control "no-cache" always;   # shell must revalidate
+        try_files $uri $uri/ /index.html;
+    }
+
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+    gzip_proxied any;
+    gzip_types text/plain text/css application/javascript application/json
+               image/svg+xml application/manifest+json;
+}

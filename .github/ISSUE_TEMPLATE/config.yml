@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Um contrato está errado ou em falta
+    url: https://dados.gov.pt/
+    about: >-
+      Os dados vêm do registo público do IMPIC e nós não os corrigimos. Se o
+      contrato está errado na origem, a correção tem de ser feita aí. Assim que
+      for corrigido, aparece aqui na ingestão seguinte.
+  - name: Como os indicadores são calculados
+    url: https://ondevaiparar.com/faqs
+    about: Cada indicador está explicado em português simples, com os seus limites.
+  - name: Termos, fontes e limites
+    url: https://ondevaiparar.com/termos
+    about: O que este site é, de onde vêm os números e o que não conseguimos medir.

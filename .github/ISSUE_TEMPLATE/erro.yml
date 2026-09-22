@@ -1,0 +1,28 @@
+name: Erro no site
+description: Uma página que não abre, um gráfico que não desenha, algo partido.
+labels: ["erro"]
+body:
+  - type: input
+    id: onde
+    attributes:
+      label: Endereço da página
+    validations:
+      required: true
+  - type: textarea
+    id: passos
+    attributes:
+      label: O que fez, e o que aconteceu
+    validations:
+      required: true
+  - type: input
+    id: ambiente
+    attributes:
+      label: Navegador e sistema
+      placeholder: Firefox 142, Android
+  - type: checkboxes
+    id: idioma
+    attributes:
+      label: Idioma da página
+      options:
+        - label: Português
+        - label: English

@@ -1,0 +1,38 @@
+Onde Vai Parar
+Copyright (C) 2026 the Onde Vai Parar contributors
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU Affero General Public License, version 3, as published by
+the Free Software Foundation. See LICENSE.
+
+The source code is AGPL-3.0. The content we wrote, meaning the prose, the
+design, the indicators and the way they are calculated, is CC-BY-4.0. See
+LICENSE-CONTENT. This mirrors what the site has always said on /termos: use it
+freely, say where it came from, and link back.
+
+
+Upstream data, which is NOT ours and which we do not relicense
+==============================================================
+
+We redistribute figures derived from public registers. The source data belongs
+to the bodies that publish it, under the licences those bodies set. Attribution
+below is required of anyone reusing this project's output.
+
+  IMPIC, contratos publicos (Portal BASE), via dados.gov.pt
+    The authoritative record: the contracts, the buyers, the suppliers.
+    Licence: see the dataset page on dados.gov.pt. CONFIRM BEFORE RELYING ON IT.
+
+  apiaberta (Portal BASE mirror)
+    A lossy six-field mirror, used only for deltas between bulk refreshes.
+    Licence: see the API terms. CONFIRM BEFORE RELYING ON IT.
+
+  SICAE, Sistema de Informacao da Classificacao Portuguesa de Actividades
+    Economicas
+    Company activity classification, queried per NIF.
+
+  VIES, VAT Information Exchange System (European Commission)
+    Registered address and VAT validity, queried per NIF.
+
+We do not correct the upstream record. Anything wrong or missing there appears
+here unchanged, by design. Corrections belong with the publishing body, not
+with us.

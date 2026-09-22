@@ -1,0 +1,235 @@
+name: Deploy
+
+# Build on GitHub-hosted runners, push to GHCR, deploy over SSH to one VPS
+# running rootless podman. The box has no inbound port but SSH: public traffic
+# arrives through a Cloudflare tunnel that dials out from inside the stack.
+#
+# No build agent, no registry mirror, no orchestrator on the box. Deploying is:
+# copy two files, pull three pinned tags, `podman compose up -d`.
+#
+# One VPS means one environment. `production` is a GitHub Environment and holds
+# every value used below: secrets for the four real credentials, vars for the
+# rest. The non-secret half arrives as a single block in vars.APP_ENV, so adding
+# a tunable later is a GitHub UI edit rather than a change to this file.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false   # never cancel an in-progress deploy
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-push:
+    name: Build and push images
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      api:    ${{ steps.meta.outputs.api }}
+      web:    ${{ steps.meta.outputs.web }}
+      ingest: ${{ steps.meta.outputs.ingest }}
+
+    steps:
+      - uses: actions/checkout@v6.0.3
+
+      - name: Compute image refs
+        id: meta
+        run: |
+          set -euo pipefail
+          # A registry path must be lowercase; a GitHub owner or repo name need
+          # not be, and ghcr.io/Owner/repo answers 400 rather than redirecting.
+          PREFIX="ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')"
+          TAG=$(git rev-parse --short HEAD)
+          {
+            echo "api=$PREFIX-api:$TAG"
+            echo "web=$PREFIX-web:$TAG"
+            echo "ingest=$PREFIX-ingest:$TAG"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4.1.0
+
+      # Each component is its own context so its .dockerignore applies; shared
+      # core and the nginx config arrive as named build contexts, exactly as
+      # compose passes them via additional_contexts. Builds stay on buildx even
+      # though the runtime is podman: podman runs OCI images and does not care
+      # what built them.
+      - name: Build and push api image
+        uses: docker/build-push-action@v7.2.0
+        with:
+          context: ./api
+          file: docker/api.Dockerfile
+          build-contexts: core=./core
+          push: true
+          tags: ${{ steps.meta.outputs.api }}
+          cache-from: type=gha,scope=api
+          cache-to:   type=gha,scope=api,mode=max
+
+      - name: Build and push ingest image
+        uses: docker/build-push-action@v7.2.0
+        with:
+          context: ./ingest
+          file: docker/ingest.Dockerfile
+          build-contexts: core=./core
+          push: true
+          tags: ${{ steps.meta.outputs.ingest }}
+          cache-from: type=gha,scope=ingest
+          cache-to:   type=gha,scope=ingest,mode=max
+
+      - name: Build and push web image
+        uses: docker/build-push-action@v7.2.0
+        with:
+          context: ./web
+          file: docker/web.Dockerfile
+          build-contexts: nginxconf=./nginx
+          # The canonical origin is compiled into the static files, so it is a
+          # build argument. The default lives in the Dockerfile.
+          build-args: |
+            PUBLIC_SITE_URL=${{ vars.PUBLIC_SITE_URL || 'https://ondevaiparar.com' }}
+          push: true
+          tags: ${{ steps.meta.outputs.web }}
+          cache-from: type=gha,scope=web
+          cache-to:   type=gha,scope=web,mode=max
+
+  deploy:
+    name: Deploy to the VPS
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    environment: production
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: read
+
+    env:
+      DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+      DEPLOY_PORT: ${{ vars.DEPLOY_PORT || '22' }}
+      DEPLOY_DIR:  ${{ vars.DEPLOY_DIR || 'stack' }}
+
+    steps:
+      - uses: actions/checkout@v6.0.3
+
+      - name: Prepare the SSH key
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          mkdir -m 700 -p ~/.ssh
+          umask 077
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy
+          # A pinned host key, not ssh-keyscan on the day. Learning the key at
+          # deploy time trusts whatever answers, which is the one thing a deploy
+          # path must not do. Get the value with `ssh-keyscan -t ed25519 <host>`
+          # once, from somewhere you trust, and paste it into the secret.
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      # The .env is rewritten on every deploy and is the only place a secret
+      # lands on the box.
+      - name: Render the stack .env
+        env:
+          APP_ENV: ${{ vars.APP_ENV }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          APIABERTA_KEY: ${{ secrets.APIABERTA_KEY }}
+          CLOUDFLARE_TUNNEL_TOKEN: ${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}
+          API_IMAGE:    ${{ needs.build-and-push.outputs.api }}
+          WEB_IMAGE:    ${{ needs.build-and-push.outputs.web }}
+          INGEST_IMAGE: ${{ needs.build-and-push.outputs.ingest }}
+        run: |
+          set -euo pipefail
+          umask 077
+          # A .env line ends at the newline, so a value carrying one would
+          # silently truncate and turn the rest into a bogus key. Refuse instead.
+          for k in POSTGRES_PASSWORD DATABASE_URL APIABERTA_KEY CLOUDFLARE_TUNNEL_TOKEN; do
+            case "${!k}" in
+              *$'\n'*) echo "::error::$k contains a newline, which cannot go in a .env file"; exit 1 ;;
+            esac
+          done
+          {
+            echo "# Written by .github/workflows/deploy.yml. Edits here are lost on"
+            echo "# the next deploy; change the production environment instead."
+            printf '%s\n' "$APP_ENV"
+            for k in POSTGRES_PASSWORD DATABASE_URL APIABERTA_KEY CLOUDFLARE_TUNNEL_TOKEN \
+                     API_IMAGE WEB_IMAGE INGEST_IMAGE; do
+              printf '%s=%s\n' "$k" "${!k}"
+            done
+          } > stack.env
+          # Never print the file. This only proves it rendered.
+          echo "rendered $(grep -c '=' stack.env) settings"
+
+      - name: Copy the stack to the box
+        run: |
+          set -euo pipefail
+          SSH="ssh -i $HOME/.ssh/deploy -p $DEPLOY_PORT -o BatchMode=yes"
+          $SSH "$DEPLOY_USER@$DEPLOY_HOST" "mkdir -m 700 -p '$DEPLOY_DIR'"
+          # Piped through ssh rather than scp'd, so the secrets never exist as a
+          # world-readable file, not even for the instant before a chmod.
+          $SSH "$DEPLOY_USER@$DEPLOY_HOST" "umask 077; cat > '$DEPLOY_DIR/.env'" < stack.env
+          $SSH "$DEPLOY_USER@$DEPLOY_HOST" "cat > '$DEPLOY_DIR/docker-compose.prod.yml'" < docker-compose.prod.yml
+
+      # Redundant once the three GHCR packages are made public, which a public
+      # repo may as well do. It stays because private is the default and a
+      # deploy that dies on `pull` is the worse trade. The token goes over
+      # stdin, never argv, so it cannot be read out of `ps` on the box.
+      - name: Log the box in to GHCR
+        run: |
+          set -euo pipefail
+          printf '%s' '${{ secrets.GITHUB_TOKEN }}' | ssh -i "$HOME/.ssh/deploy" \
+            -p "$DEPLOY_PORT" -o BatchMode=yes "$DEPLOY_USER@$DEPLOY_HOST" \
+            "XDG_RUNTIME_DIR=/run/user/\$(id -u) podman login ghcr.io -u '${{ github.actor }}' --password-stdin"
+
+      - name: Pull and bring the stack up
+        run: |
+          set -euo pipefail
+          ssh -i "$HOME/.ssh/deploy" -p "$DEPLOY_PORT" -o BatchMode=yes \
+            "$DEPLOY_USER@$DEPLOY_HOST" "DEPLOY_DIR='$DEPLOY_DIR' sh -s" <<'REMOTE'
+          set -eu
+          # A non-login ssh command inherits no session, and rootless podman has
+          # to find its own socket. linger is what keeps this path alive between
+          # logins; the host bootstrap sets this up.
+          XDG_RUNTIME_DIR="/run/user/$(id -u)"; export XDG_RUNTIME_DIR
+          cd "$DEPLOY_DIR"
+
+          podman compose -f docker-compose.prod.yml pull
+          podman compose -f docker-compose.prod.yml up -d --remove-orphans
+
+          # The deploy gate. `up -d` returns as soon as the containers exist,
+          # which says nothing about whether the API can reach the database.
+          # Without this a broken rollout reports success and the first person
+          # to find out is a reader.
+          cid=$(podman compose -f docker-compose.prod.yml ps -q api)
+          status=unknown
+          i=0
+          while [ "$i" -lt 36 ]; do
+            status=$(podman inspect --format '{{.State.Health.Status}}' "$cid" 2>/dev/null || echo unknown)
+            [ "$status" = healthy ] && break
+            i=$((i + 1))
+            sleep 5
+          done
+          if [ "$status" != healthy ]; then
+            echo "api never became healthy (last status: $status)" >&2
+            podman compose -f docker-compose.prod.yml logs --tail 80 api migrate db >&2
+            exit 1
+          fi
+
+          # Yesterday's SHA-tagged images are dead weight on a small disk.
+          podman image prune -f
+          podman compose -f docker-compose.prod.yml ps
+          REMOTE

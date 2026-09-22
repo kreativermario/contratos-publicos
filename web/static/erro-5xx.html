@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex" />
+<title>Isto foi culpa nossa / That one was our fault · Onde Vai Parar</title>
+<style>
+/* Standalone on purpose: an error page must render when everything else is
+   broken, so it carries its own styling and depends on nothing but the fonts.
+   Bilingual by stacking, not by scripting: there is nothing here that could
+   read a route, and a reader who lands on it may not have the app at all. */
+@font-face {
+  font-family: 'Bowlby One';
+  src: url('/fonts/taiPGmVuC4y96PFeqp8sqomI_L8zYK8.woff2') format('woff2');
+  font-weight: 400; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: 'Archivo';
+  src: url('/fonts/k3kPo8UDI-1M0wlSV9XAw6lQkqWY8Q82sLydOxKsv4Rn.woff2') format('woff2');
+  font-weight: 100 900; font-style: normal; font-display: swap;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 2rem 1.25rem;
+  background-color: #fff5d8;
+  background-image:
+    repeating-linear-gradient(45deg,  rgba(0,124,166,.045) 0 2px, transparent 2px 22px),
+    repeating-linear-gradient(-45deg, rgba(0,124,166,.045) 0 2px, transparent 2px 22px);
+  color: #240706;
+  font-family: 'Archivo', 'Helvetica Neue', Arial, sans-serif;
+  line-height: 1.55; -webkit-font-smoothing: antialiased;
+}
+.stripe { position: fixed; inset: 0 0 auto; height: 5px; background: linear-gradient(90deg,
+  #df2225 0 25%, #f6ce00 25% 50%, #007ca6 50% 75%, #11ad32 75% 100%); }
+.card {
+  background: #fffcef; border: 2px solid #240706; border-radius: .625rem;
+  box-shadow: 4px 4px 0 #240706; padding: 2rem 2.2rem 2.2rem; max-width: 34rem; width: 100%;
+}
+.eyebrow { font-size: .72rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase;
+  color: #9c8078; margin: 0; }
+.code { font-family: 'Bowlby One', Impact, sans-serif; font-size: clamp(3.5rem, 14vw, 6rem);
+  line-height: .9; margin: .4rem 0 .2rem; color: #c1121f; letter-spacing: -.02em; }
+h1 { font-family: 'Bowlby One', Impact, sans-serif; font-weight: 400; text-transform: uppercase;
+  font-size: clamp(1.2rem, 4vw, 1.8rem); line-height: 1; margin: 0 0 .75rem; }
+p { margin: 0 0 1rem; color: #6b4a44; }
+a.home {
+  display: inline-block; text-decoration: none; font-weight: 700; font-size: .9rem;
+  color: #fff5d8; background: #240706; border: 2px solid #240706; border-radius: .625rem;
+  padding: .5rem 1rem;
+}
+a.home:hover { background: #df2225; }
+a.home:focus-visible { outline: 3px solid #007ca6; outline-offset: 2px; }
+.foot { margin: 1.25rem 0 0; font-size: .78rem; color: #9c8078; }
+hr { margin: 1.8rem 0 1.4rem; border: 0; height: 3px; background: linear-gradient(90deg,
+  #df2225 0 25%, #f6ce00 25% 50%, #007ca6 50% 75%, #11ad32 75% 100%); }
+</style>
+</head>
+<body>
+<div class="stripe" aria-hidden="true"></div>
+<main class="card">
+  <p class="eyebrow">Onde Vai Parar</p>
+  <p class="code">500</p>
+  <h1>Isto foi culpa nossa</h1>
+  <p>Alguma coisa do nosso lado tropeçou a meio do pedido. Os dados estão bem, o problema é o caminho até eles.</p>
+  <a class="home" href="/">Voltar ao início</a>
+  <p class="foot">Tenta daqui a pouco. Se persistir, é porque ainda não demos por ela.</p>
+
+  <hr />
+
+  <h1 lang="en">That one was our fault</h1>
+  <p lang="en">Something on our side tripped up halfway through the request. The data is fine, the path to it is not.</p>
+  <a class="home" lang="en" href="/en">Back to the start</a>
+  <p class="foot" lang="en">Try again shortly. If it persists, it means we have not noticed yet.</p>
+</main>
+</body>
+</html>

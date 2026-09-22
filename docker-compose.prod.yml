@@ -1,0 +1,346 @@
+# Production stack for one VPS running ROOTLESS podman.
+#
+#   podman compose -f docker-compose.prod.yml up -d
+#
+# Brought up by .github/workflows/deploy.yml over plain SSH: it writes .env next
+# to this file, pulls the SHA-pinned images from GHCR and runs the command
+# above. No agent on the box, no orchestrator API, no registry credential at
+# rest, no root-owned daemon socket.
+#
+# ZERO INBOUND PORTS. cloudflared dials out to Cloudflare and traffic comes back
+# down that connection, so nothing here publishes a port and nothing on the box
+# holds a certificate. Do not add `ports:` to any service: the host firewall
+# only expects SSH, so a published port is a hole nobody is watching.
+#
+# Only DATABASE_URL has no default in core/settings.py; everything omitted here
+# falls back to the value declared there.
+#
+# SELinux stays enforcing. Every mount below is a named volume or a tmpfs, and
+# podman labels both correctly on its own. Any BIND mount added later needs :Z
+# on the mount or the container reads its own files as permission denied.
+
+# MEMORY LIMITS. RAM is shared by postgres, the API, nginx, cloudflared and two
+# ingest loops, and Linux resolves an out-of-memory condition by killing the
+# process with the largest resident set. That is always postgres, which is the
+# one thing here that must not die.
+#
+# So every service except the database carries a ceiling, and the database
+# carries none. An ingest run that overruns now kills its own container, which
+# restarts and retries on the next tick, instead of taking the database with it.
+# These are ceilings, not reservations: normal usage sits well below them.
+#
+# Rootless caveat: a memory limit is silently IGNORED if systemd has not
+# delegated the memory controller to the user slice. Verify on the box with
+#   cat /sys/fs/cgroup/user.slice/user-$(id -u).slice/cgroup.controllers
+# and check that `memory` is listed.
+
+x-hardening: &hardening
+  # `always`, not `unless-stopped`: podman has no daemon, so containers come
+  # back after a reboot only because podman-restart.service starts them, and
+  # that unit runs `podman start --all --filter restart-policy=always`. An
+  # unless-stopped container would stay down until somebody logged in.
+  restart: always
+  read_only: true
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: ["ALL"]
+
+x-appenv: &appenv
+  DATABASE_URL: ${DATABASE_URL}
+  MUNICIPALITY_NIFS: ${MUNICIPALITY_NIFS}
+  IMPIC_YEARS: ${IMPIC_YEARS}
+  IMPIC_DATASET_CONTRACTS: ${IMPIC_DATASET_CONTRACTS}
+  IMPIC_DATASET_ENTITIES: ${IMPIC_DATASET_ENTITIES}
+  DEFAULT_MUNICIPALITY_NIF: ${DEFAULT_MUNICIPALITY_NIF}
+  API_CORS_ORIGINS: ${API_CORS_ORIGINS}
+  APIABERTA_KEY: ${APIABERTA_KEY}
+  COMPANY_LOOKUP_ENABLED: ${COMPANY_LOOKUP_ENABLED}
+
+services:
+  # There is no db-init one-shot here any more, and the reason is a mount path
+  # rather than a container runtime.
+  #
+  # A fresh named volume inherits the ownership and mode of the image directory
+  # it mounts over, on docker and podman alike. The old compose mounted pgdata
+  # at /var/lib/postgresql/data, which does NOT exist in postgres:18-alpine: with
+  # nothing to copy up, the volume stayed root:root 0755, uid 70 could not write
+  # to it, and a root container had to chown it first. Mounting at
+  # /var/lib/postgresql instead, which is the image's own declared VOLUME and
+  # ships owned 70:70 mode 1777, hands the volume to postgres with no help from
+  # anyone. Both mounts were run against the image to confirm it.
+  #
+  # Rootless podman would have retired the one-shot by a second route anyway: it
+  # chowns a never-used named volume to the container's uid on first mount. The
+  # copy-up is the better reason to lean on, because it keeps working under
+  # plain docker, which is what docker-compose.yml still uses for development.
+  db:
+    <<: *hardening
+    image: postgres:18-alpine3.24
+    user: "70:70"                      # postgres uid in the alpine variant
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      PGDATA: /var/lib/postgresql/pgdata
+    # Tuning for a small shared box, passed as flags because a conf file would
+    # be a bind mount and a bind mount would need SELinux labelling. Every
+    # number is an env var, defaults below.
+    #
+    # RAM is shared with the API, nginx, cloudflared and two ingest loops, so
+    # these are deliberately below every textbook ratio. The rule here is that
+    # postgres must never be the process that makes the box run out.
+    #
+    #   shared_buffers        The usual 25% would be 1 GB. 512 MB leaves more
+    #                         for kernel page cache, which is what actually
+    #                         serves a read-mostly workload of aggregates.
+    #   effective_cache_size  Not an allocation: what the planner assumes the
+    #                         kernel holds. Conservative on a shared box.
+    #   maintenance_work_mem  Index builds after a bulk COPY. Allocated only
+    #                         during an ingest, and only one runs at a time.
+    #   work_mem              Per sort or hash node, NOT per connection, which
+    #                         is why it is the dangerous knob here. At 6 MB
+    #                         with four nodes across ten pooled connections the
+    #                         worst case is around 240 MB.
+    #   max_connections       25. The API pool is 10 and ingest adds a handful.
+    #                         The default 100 would quadruple the work_mem
+    #                         worst case for connections nothing ever opens.
+    #   max_wal_size          The default 1 GB checkpoints every few seconds
+    #                         during a bulk COPY and the load stalls behind it.
+    #                         2 GB is the compromise on a modest disk, where
+    #                         a larger WAL would be a sizable share of the disk.
+    #   max_parallel_*        Two cores total, and one of them may be parsing an
+    #                         IMPIC year file. A parallel gather that fans out to
+    #                         two workers starves everything else, so a query
+    #                         gets at most one helper.
+    #   random_page_cost      NVMe, not a spinning disk, so a random read costs
+    #   effective_io_concurrency   barely more than a sequential one.
+    #   wal_compression       A bulk COPY is WAL bound before it is CPU bound,
+    #                         and disk is tighter here than CPU.
+    command:
+      - postgres
+      - -c
+      - shared_buffers=${PG_SHARED_BUFFERS:-512MB}
+      - -c
+      - effective_cache_size=${PG_EFFECTIVE_CACHE_SIZE:-1536MB}
+      - -c
+      - maintenance_work_mem=${PG_MAINTENANCE_WORK_MEM:-192MB}
+      - -c
+      - work_mem=${PG_WORK_MEM:-6MB}
+      - -c
+      - max_connections=${PG_MAX_CONNECTIONS:-25}
+      - -c
+      - max_wal_size=${PG_MAX_WAL_SIZE:-2GB}
+      - -c
+      - min_wal_size=${PG_MIN_WAL_SIZE:-512MB}
+      - -c
+      - checkpoint_completion_target=${PG_CHECKPOINT_COMPLETION_TARGET:-0.9}
+      - -c
+      - random_page_cost=${PG_RANDOM_PAGE_COST:-1.1}
+      - -c
+      - effective_io_concurrency=${PG_EFFECTIVE_IO_CONCURRENCY:-200}
+      - -c
+      - wal_compression=${PG_WAL_COMPRESSION:-on}
+      - -c
+      - max_parallel_workers_per_gather=${PG_MAX_PARALLEL_PER_GATHER:-1}
+      - -c
+      - max_parallel_workers=${PG_MAX_PARALLEL_WORKERS:-2}
+      - -c
+      - max_worker_processes=${PG_MAX_WORKER_PROCESSES:-4}
+    volumes:
+      - pgdata:/var/lib/postgresql
+    tmpfs:
+      # tmpfs mounts arrive root-owned; postgres runs as uid 70 and writes its
+      # socket and lock files into all three.
+      - /tmp:uid=70,gid=70,mode=1777
+      - /run:uid=70,gid=70,mode=0755
+      - /var/run/postgresql:uid=70,gid=70,mode=0755
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    expose: ["5432"]
+
+  # One-shot, runs on every deploy and exits. `schema` is create_all only: it adds
+  # missing tables and is a no-op once they exist, so it costs seconds. Without it
+  # a fresh stack starts an API that queries tables nobody ever created, which is
+  # exactly how the first deploy failed with `relation "contracts" does not exist`.
+  #
+  # Loading data is deliberately NOT here: the IMPIC bulk is hundreds of MB and
+  # must never gate a rollout. That stays the `ingest` services below, on a loop.
+  #
+  # create_all adds missing tables, never missing columns. A new column on an
+  # existing model still needs the table dropped or a real migration.
+  migrate:
+    <<: *hardening
+    restart: "no"
+    image: ${INGEST_IMAGE}
+    mem_limit: ${MEM_MIGRATE:-384m}
+    command: ["schema"]
+    user: "10001:10001"
+    environment: *appenv
+    depends_on:
+      db: {condition: service_healthy}
+    tmpfs: ["/tmp"]
+
+  api:
+    <<: *hardening
+    image: ${API_IMAGE}
+    mem_limit: ${MEM_API:-512m}
+    user: "10001:10001"
+    environment: *appenv
+    depends_on:
+      db: {condition: service_healthy}
+      migrate: {condition: service_completed_successfully}
+    tmpfs: ["/tmp"]
+    expose: ["8000"]
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health',timeout=5).status==200 else 1)\""]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+  web:
+    <<: *hardening
+    image: ${WEB_IMAGE}
+    mem_limit: ${MEM_WEB:-128m}
+    user: "101:101"
+    depends_on: [api]
+    environment:
+      NGINX_API_UPSTREAM: ${NGINX_API_UPSTREAM:-api:8000}
+      # The only thing that can reach nginx is cloudflared, on the stack network
+      # pinned at the bottom of this file. Keep this equal to STACK_SUBNET:
+      # trusting exactly that subnet and nothing else is what makes the real
+      # client IP believable. See NGINX_REAL_IP_HEADER.
+      NGINX_TRUSTED_PROXY: ${NGINX_TRUSTED_PROXY:-10.89.7.0/24}
+      NGINX_REAL_IP_HEADER: ${NGINX_REAL_IP_HEADER:-CF-Connecting-IP}
+      NGINX_API_RATE: ${NGINX_API_RATE:-20r/s}
+      NGINX_API_BURST: ${NGINX_API_BURST:-40}
+    tmpfs:
+      # tmpfs mounts default to root ownership; nginx runs as uid 101.
+      - /tmp:uid=101,gid=101,mode=1777
+      - /var/cache/nginx:uid=101,gid=101,mode=0755
+      - /var/run:uid=101,gid=101,mode=0755
+      - /etc/nginx/conf.d:uid=101,gid=101,mode=0755   # envsubst renders here
+    expose: ["8080"]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/healthz || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  # The edge. Dials out to Cloudflare and public traffic comes back down that
+  # connection, which is why this box publishes nothing and holds no certificate.
+  #
+  # Which hostname reaches which service is configured on the Cloudflare side
+  # against this token, not here: point the tunnel's public hostname at
+  # http://web:8080. The token IS the configuration, so treat it as a
+  # credential: on its own it is enough to serve traffic as this tunnel.
+  #
+  # No healthcheck: the image is distroless, with no shell and no wget, so every
+  # CMD-SHELL probe would fail on a container that is perfectly healthy. Nothing
+  # depends on it, and a tunnel that cannot connect is visible in Cloudflare.
+  cloudflared:
+    <<: *hardening
+    image: ${CLOUDFLARED_IMAGE:-docker.io/cloudflare/cloudflared:2026.9.1}
+    mem_limit: ${MEM_CLOUDFLARED:-128m}
+    # The image already ships USER 65532 and an entrypoint of
+    # `cloudflared --no-autoupdate`; the uid is pinned here anyway so a base
+    # image change cannot quietly hand this container a different one.
+    user: "65532:65532"
+    command: ["tunnel", "run"]
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
+      TUNNEL_TRANSPORT_PROTOCOL: ${CLOUDFLARE_TUNNEL_PROTOCOL:-auto}
+    depends_on:
+      web: {condition: service_healthy}
+    tmpfs: ["/tmp:uid=65532,gid=65532,mode=1777"]
+
+  # Scheduling lives in the stack rather than in a host timer, and deliberately
+  # without a container socket: these are the ingest image running its own CLI
+  # on a loop, so nothing here gets daemon-level access to the host.
+  #
+  # Two jobs, because they are not the same thing. apiaberta is the lossy 6-field
+  # mirror, so `delta` creates thin rows: no concorrentes, no CPV, none of the
+  # fields the indices are scored from. Only the IMPIC bulk fills those in, which
+  # makes `impic` a correction pass rather than a bigger `delta`.
+  #
+  # ponytail: `while :; do ...; sleep N; done` is a scheduler impersonation and
+  # it has a ceiling. It cannot express a wall clock time (the bulk runs
+  # whenever the last deploy happened to land), it drifts by the runtime of each
+  # pass, a container restart resets the clock, and a failure is swallowed by
+  # `|| true` with nowhere to report it. The upgrade is the mechanism these
+  # loops are imitating: podman quadlets (.container units under
+  # ~/.config/containers/systemd) driven by systemd .timer units with
+  # OnCalendar and Persistent=true, which buys real schedules, catch-up after
+  # downtime, and failures in journalctl. Do that when the schedule starts
+  # mattering, not before.
+  ingest-delta:
+    <<: *hardening
+    image: ${INGEST_IMAGE}
+    mem_limit: ${MEM_INGEST_DELTA:-320m}
+    # Runs once at start too: it is cheap, and a redeployed stack should not wait
+    # a whole day to catch up.
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - "while :; do python -m contratos_ingest delta || true; sleep ${INGEST_DELTA_INTERVAL:-86400}; done"
+    user: "10001:10001"
+    environment: *appenv
+    depends_on:
+      db: {condition: service_healthy}
+      migrate: {condition: service_completed_successfully}
+    tmpfs: ["/tmp"]
+
+  ingest-bulk:
+    <<: *hardening
+    image: ${INGEST_IMAGE}
+    mem_limit: ${MEM_INGEST_BULK:-640m}
+    # Runs on start, THEN sleeps. That costs a re-download of the year files on
+    # every deploy (nothing caches them, roughly five minutes in the background),
+    # and buys two things worth more: a fresh stack seeds itself with no manual
+    # step, and `podman restart <stack>_ingest-bulk_1` becomes the manual
+    # "ingest now" button. It gates nothing, since api does not depend on it.
+    # Same ponytail ceiling as ingest-delta above.
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - "while :; do python -m contratos_ingest impic || true; sleep ${INGEST_BULK_INTERVAL:-604800}; done"
+    user: "10001:10001"
+    environment: *appenv
+    depends_on:
+      db: {condition: service_healthy}
+      migrate: {condition: service_completed_successfully}
+    tmpfs: ["/tmp"]
+    volumes:
+      - ingestdata:/data
+
+  # One-shot, never started by the stack. Used for the initial seed and ad-hoc
+  # runs, from the stack directory on the box:
+  #   podman compose --profile tools run --rm ingest impic
+  ingest:
+    <<: *hardening
+    restart: "no"
+    image: ${INGEST_IMAGE}
+    mem_limit: ${MEM_INGEST:-640m}
+    user: "10001:10001"
+    environment: *appenv
+    depends_on:
+      db: {condition: service_healthy}
+    tmpfs: ["/tmp"]
+    volumes:
+      - ingestdata:/data
+    profiles: ["tools"]
+
+# Pinned rather than left to podman, because nginx has to name the tunnel's
+# address in set_real_ip_from and cannot look it up by container name. Whatever
+# subnet the network ends up with, NGINX_TRUSTED_PROXY has to match it, so
+# fixing it here keeps that one value instead of two that can drift. Confirm on
+# the box with:  podman network inspect contratos-publicos_default
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: ${STACK_SUBNET:-10.89.7.0/24}
+
+volumes:
+  pgdata: {}
+  ingestdata: {}

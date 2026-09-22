@@ -1,0 +1,33 @@
+name: Um número está mal calculado
+description: O registo está certo mas nós lemo-lo mal.
+labels: ["cálculo"]
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        Antes de abrir: se o problema é o próprio contrato estar errado no
+        registo público, isso corrige-se no IMPIC, não aqui. Este formulário é
+        para quando o registo está certo e o nosso cálculo não.
+  - type: input
+    id: onde
+    attributes:
+      label: Onde
+      description: O endereço da página, ou o NIF do município, ou o id do contrato.
+      placeholder: https://ondevaiparar.com/municipio/504293125
+    validations:
+      required: true
+  - type: textarea
+    id: esperado
+    attributes:
+      label: O que devia aparecer, e porquê
+      description: >-
+        Se conseguir, diga que número esperava e como lá chegou. Um id de
+        contrato ou um NIF de fornecedor torna isto reproduzível.
+    validations:
+      required: true
+  - type: textarea
+    id: aparece
+    attributes:
+      label: O que aparece
+    validations:
+      required: true

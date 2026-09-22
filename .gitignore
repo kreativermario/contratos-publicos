@@ -1,0 +1,8 @@
+.env
+data/
+*.zip
+*.json.gz
+node_modules/
+web/.svelte-kit/
+web/build/
+__pycache__/

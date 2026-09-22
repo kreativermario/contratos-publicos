@@ -1,0 +1,16 @@
+[project]
+name = "contratos-api"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "contratos-core",
+    "fastapi>=0.141.1",
+    "uvicorn[standard]>=0.53.0",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["contratos_api*"]

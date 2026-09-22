@@ -1,0 +1,30 @@
+# gitleaks config for contratos-publicos.
+#
+# Extends the bundled rule set rather than replacing it, so upstream keeps
+# adding providers we never have to think about. Only the allowlist below is
+# ours, and every entry needs a reason.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Placeholders and public data that are not secrets"
+
+paths = [
+  # Every value in here is a placeholder by definition; it is the template a
+  # real .env is copied from, and .env itself is gitignored.
+  '''^\.env\.example$''',
+  # Public geometry and self-hosted font binaries: high entropy, no secrets.
+  '''^web/static/pt-municipios\.geojson$''',
+  '''^web/static/fonts/.*\.woff2$''',
+  '''^web/package-lock\.json$''',
+]
+
+regexes = [
+  # The documented placeholder password. A real one never reaches the repo
+  # because .env is ignored, and CI should fail if this string ever changes
+  # into something that looks real.
+  '''change-me''',
+  # Portuguese NIFs are public register identifiers, not credentials. They are
+  # the primary key of this entire project.
+  '''\b5\d{8}\b''',
+]
