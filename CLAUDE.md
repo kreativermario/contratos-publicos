@@ -418,8 +418,13 @@ the amount and the unit separately; the unit goes in a `.unit` span (Archivo
   sites publish each as one region, `LOCAL-300000` and `LOCAL-400000`. Fetching
   per island 404s, which is how 30 municípios went quietly missing on the first
   mandate run.
-- tmpfs mounts and named volumes are created root-owned. Containers run
-  rootless, so set `uid=`/`gid=` on tmpfs and own the path in the image.
+- tmpfs mounts and named volumes are created root-owned, and containers run as a
+  non-root uid, so a tmpfs a container must write to needs `mode=1777`. **Not**
+  `uid=`/`gid=`: those are Docker options, and podman's compose API rejects them
+  with `unknown mount option "uid=70"` and never creates the container. Sticky
+  and world-writable gets there anyway, since each uid writes its own files and
+  cannot remove another's. A named volume needs none of this under rootless
+  podman, which chowns a fresh one to the container's uid on first mount.
 - `SQLAlchemy 2.1.0` has no stable release; pinned `>=2.0.54,<2.1.0`.
 - `typescript` is pinned `^6`: `svelte-check@4` peers `^5 || ^6`, so TS 7 breaks
   `npm ci`.
@@ -581,7 +586,11 @@ commit SHA. Podman runs OCI images and does not care what built them.
 **The deploy is an SSH session over the NetBird mesh.** Since the edge was
 closed there is no route to port 22 on the public address, so the job enrols the
 runner as an ephemeral peer in the `ci-runners` group and talks to the box's
-NetBird IP (`vars.DEPLOY_HOST`). That group is defined in the homelab terraform,
+NetBird address (`vars.DEPLOY_HOST`). The peer NAME does not work from a
+runner: the agent connects but never takes over the runner's resolver, and
+`ci-runners` is in no nameserver group, so `.netbird.selfhosted` does not
+resolve there. Re-enrolling the VPS changes that address and breaks the
+deploy until the variable is updated. That group is defined in the homelab terraform,
 not here, and reaches tcp/22 on this one host and nothing else; `bidirectional`
 is off, so the box has no path back to the runner. The peer deletes itself
 minutes after the job ends, which is why the workflow has no teardown step. Then

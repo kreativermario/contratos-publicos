@@ -118,10 +118,16 @@ jobs:
       packages: read
 
     env:
-      # The box's NetBird address, not its public one, which answers nothing
-      # since the provider edge was closed. An IP rather than a magic-DNS name
-      # on purpose: the runner is given no NetBird resolver, so a name would be
-      # one more thing to be broken at 3am.
+      # The box's NetBird IP, not its public address, which answers nothing since
+      # the provider edge was closed.
+      #
+      # The peer's `<name>.netbird.selfhosted` name does NOT work here, and this
+      # was tried: the agent reports Connected and the name still fails to
+      # resolve, because it never takes over the runner's resolver and ci-runners
+      # is deliberately in no nameserver group. An address needs no resolver.
+      #
+      # The cost is that this goes stale if the VPS ever re-enrols, which changes
+      # its NetBird address. That failure is loud and one variable wide.
       DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
       DEPLOY_USER: ${{ vars.DEPLOY_USER }}
       DEPLOY_PORT: ${{ vars.DEPLOY_PORT || '22' }}
