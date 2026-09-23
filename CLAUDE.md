@@ -476,6 +476,20 @@ the amount and the unit separately; the unit goes in a `.unit` span (Archivo
   title, because it answers for `/empresa/500123456` and `/contrato/99` too.
   `build/en/index.html` is different and may be specific, because nginx resolves
   `/en` to it via `$uri/` and falls back to the root shell for anything deeper.
+- **Prerendering turned paths into directories, and nginx redirects to those.**
+  `try_files $uri $uri/ /index.html` served every unknown path the SPA shell
+  because nothing matched. Once `prerender.mjs` writes
+  `build/municipio/<nif>/index.html`, `$uri/` matches a *directory*, and nginx
+  answers a directory with a **301 to the trailing-slash form** before serving
+  its index. A reader refreshing `/municipio/505307685` was handed
+  `http://ondevaiparar.com:8080/municipio/505307685/`: the internal listen port
+  and whichever Host arrived, in a URL nothing answers on, because an absolute
+  redirect is built from `$scheme://$host:$server_port`. Two fixes, both
+  needed. `$uri/index.html` goes **before** `$uri/`, which serves the file with
+  no redirect at all and keeps the one spelling the sitemap and the canonical
+  already use, without the trailing slash. And `absolute_redirect off`, because
+  any redirect this container generates behind a tunnel leaks 8080 the same
+  way, and the next one will not be noticed either.
 - **A `<button onclick>` is not a link, and that was the whole SEO problem.**
   The município picker rendered each council as a button, so there was no path
   a crawler could follow from the homepage to any `/municipio/<nif>`, and the

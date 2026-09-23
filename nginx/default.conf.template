@@ -54,6 +54,15 @@ server {
     index index.html;
 
     server_tokens off;
+    # Every redirect nginx generates itself must be relative. An absolute one is
+    # built from $scheme://$host:$server_port, and this container listens on
+    # 8080 behind a tunnel that terminates TLS elsewhere, so a directory
+    # redirect handed a reader `https://ondevaiparar.com:8080/municipio/.../`:
+    # the internal port, and whichever Host arrived, in a URL nothing answers on.
+    # port_in_redirect is redundant once absolute_redirect is off and is set
+    # anyway, because the failure is invisible until somebody hits it.
+    absolute_redirect off;
+    port_in_redirect  off;
     client_max_body_size   16k;     # nothing here accepts uploads
     client_body_timeout    10s;
     client_header_timeout  10s;
@@ -133,10 +142,19 @@ server {
     }
 
     # SPA: unknown paths are client-side routes, so the shell is returned.
+    #
+    # $uri/index.html comes BEFORE $uri/, and that order is the whole of it.
+    # scripts/prerender.mjs writes build/municipio/<nif>/index.html, so those
+    # paths are directories now; `$uri/` matches a directory by issuing a 301 to
+    # the trailing-slash form first, which is a redirect a reader can see, and
+    # which fights the canonical: the sitemap and the canonical link both spell
+    # these URLs WITHOUT a trailing slash. Naming the index file directly serves
+    # it with no redirect at all and keeps the one spelling. /en is the same
+    # case. $uri/ stays last for a reader who typed the slash themselves.
     location / {
         include /etc/nginx/security-headers.conf;
         add_header Cache-Control "no-cache" always;   # shell must revalidate
-        try_files $uri $uri/ /index.html;
+        try_files $uri $uri/index.html $uri/ /index.html;
     }
 
     gzip on;
