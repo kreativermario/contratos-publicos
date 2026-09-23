@@ -125,9 +125,9 @@ def test_an_inactive_company_is_flagged_by_nif():
     assert "fechada" in keys(flags_for(row(), S, ctx))
 
 
-def _run(n, value, cpv="45000000", step=30, party=FIRM):
+def _run(n, value, cpv="45000000", step=30, party=FIRM, buyer="504293125"):
     start = date(2024, 1, 1)
-    return [row(id=i, value=value, cpv=cpv, parties=[party],
+    return [row(id=i, value=value, cpv=cpv, parties=[party], buyer_nif=buyer,
                 signed_date=start + timedelta(days=i * step)) for i in range(n)]
 
 
@@ -160,6 +160,27 @@ def test_different_kinds_of_work_are_not_one_run():
     for i, r in enumerate(rows):
         r["id"] = i
     assert slice_groups(rows, S) == {}
+
+
+def test_the_same_firm_at_three_councils_is_not_one_run():
+    """Three small jobs for three different câmaras are three ordinary jobs.
+    Without the buyer in the key they read as one split contract."""
+    rows = (_run(1, S.thresholds[0] - 500, buyer="a")
+            + _run(1, S.thresholds[0] - 500, buyer="b")
+            + _run(1, S.thresholds[0] - 500, buyer="c"))
+    for i, r in enumerate(rows):
+        r["id"] = i
+    assert slice_groups(rows, S) == {}
+
+
+def test_a_run_reads_a_supplier_id_straight_off_the_row():
+    """What the repository selects: one row per (contract, supplier) with the
+    id already resolved, rather than the nested parties the API shapes."""
+    rows = [{"id": i, "sid": FIRM["nif"], "buyer_nif": "504293125",
+             "cpv": "45000000", "value": S.thresholds[0] - 500,
+             "signed_date": date(2024, 1, 1) + timedelta(days=i * 30)}
+            for i in range(3)]
+    assert len(slice_groups(rows, S)) == 3
 
 
 def test_a_run_is_keyed_on_the_nif_not_the_spelling():

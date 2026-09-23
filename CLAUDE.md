@@ -266,9 +266,14 @@ therefore silent on a supplier's own page, where the rows span every câmara the
 firm works for.
 
 `slice_groups` is grouped in Python, not SQL, on purpose: the rule is a shape
-(same firm, same kind of work, close in time, each under a ceiling the run as a
-whole clears) rather than a filter, and as one statement it is unreadable and
-untestable. The input is one page of contracts.
+(same buyer, same firm, same kind of work, close in time, each under a ceiling
+the run as a whole clears) rather than a filter, and as one statement it is
+unreadable and untestable. **It reads every contract those firms hold, never the
+page on screen.** Grouping the page made the flag depend on pagination and on
+the sort: awards either side of a page boundary were invisible, and the same
+contract carried the chip under one sort and not another. The buyer belongs in
+the key too, or one firm doing three small jobs for three different câmaras
+reads as one split contract.
 
 `api/tests/test_flags.py` is the only thing watching any of this. The rules used
 to live in a router, where nothing could reach them without a server and a
@@ -512,6 +517,38 @@ the amount and the unit separately; the unit goes in a `.unit` span (Archivo
   config. The version segment in the pattern is a wildcard, so a `/v2` is
   covered without editing nginx. `API_CORS_ORIGINS=*` defends nothing either
   way: CORS is a browser rule and every scraper ignores it.
+- **A tab in a query parameter re-runs `load`.** SvelteKit tracks the whole URL
+  as a dependency the moment a `load` reads `url.searchParams`, and the
+  município page reads it for the year window. So `goto` on a tab switch
+  refetched score, 120 suppliers, rivals, contracts, map cells, stats, mandates,
+  the municipality list and the config, and blocked the navigation until all
+  nine returned: the Rede tab looked like it was hanging. Tabs choose which
+  already-loaded data to show and are not an input to any of it, so they use
+  **shallow routing** (`replaceState` from `$app/navigation`), which updates
+  `page.url` without re-running `load`. A deep link still reads the param on a
+  real navigation.
+- **A scroll position is a number, not a place.** Filtering a table, switching a
+  tab and expanding a row all swap a tall block for a short one, and the same
+  pixel offset then lands somewhere the reader never asked to be: filter a
+  9000px table to four rows and the browser clamps them to the new bottom. On a
+  phone, where the viewport holds one or two of these blocks, it fires on nearly
+  every interaction. `keepInView(el)` is the whole answer, used at all three
+  sites: await `tick()` so the measurement is taken against the layout that now
+  exists, then scroll `el` back to the top **only if it has drifted above the
+  window**. Moving the page under somebody who can already see what they clicked
+  is its own kind of wrong. Measuring before the DOM settles reads the geometry
+  that just stopped being true, which is the bug in its own right.
+- **Only one StatTable row is open at a time, so opening one closes another.**
+  When the one that closes was above the one just clicked, its rows vanish and
+  everything below slides up, carrying the clicked row off the top of the
+  window. That is why `toggle` takes the button element.
+- **A chart that is unsized when its option arrives never draws.** `Chart.svelte`
+  refuses `setOption` on a box with no width or height, because zrender inverts
+  the geo transform on every resize and `invert()` returns null for the singular
+  matrix a collapsed box produces. Nothing retried, so a panel that was unsized
+  at that moment kept an empty chart for good. The ResizeObserver is the only
+  thing that knows when the box gained a size, so it now draws as well as
+  resizes.
 - **One static shell cannot carry a canonical link.** `app.html` is served for
   every route, so a canonical baked there told the index that `/panorama`,
   every município and every empresa page were all the same URL as `/`. The
@@ -738,6 +775,15 @@ dropped and `no-new-privileges`. nginx speaks plain HTTP on 8080 in both
 environments.
 
 ## Deployment
+
+The stack runs three loops beside the API: `ingest-delta`, `ingest-bulk` and
+**`empresas`**, the company backfill. That last one is on `API_IMAGE` rather
+than `INGEST_IMAGE`, because the lookup and its cache live in `contratos_api`,
+and it is the only thing in the stack allowed to spend the nif.pt quota. It
+paces itself and stops at `COMPANY_NIFPT_DAILY`, so its `sleep` decides only how
+often it goes looking, never how hard it hits the register. With no key it logs
+that and exits, which is the right behaviour for a stack that has not been given
+one.
 
 `docker-compose.prod.yml` and `.github/workflows/deploy.yml` are authoritative
 and carry the reasoning inline.

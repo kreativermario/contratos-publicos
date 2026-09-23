@@ -779,12 +779,30 @@ class MunicipalityRepository:
         contracts touches at most a few hundred suppliers, so each of these is
         one indexed query against a small `IN` list.
         """
-        ctx = FlagContext(sliced=slice_groups(rows, settings))
+        ctx = FlagContext()
         ids = {supplier_id(p) for r in rows for p in (r.get("parties") or [])}
         ids.discard(None)
         if not ids:
             return ctx
         ids = list(ids)
+
+        # A run of split awards is read off EVERY contract these firms hold, not
+        # off the rows on screen. Grouping the page made the flag depend on
+        # pagination and on the sort order: three awards either side of a page
+        # boundary were invisible, and the same contract carried the chip under
+        # one sort and not another.
+        ctx.sliced = slice_groups([
+            {"id": cid, "sid": sid, "buyer_nif": buyer, "cpv": cpv,
+             "value": value, "signed_date": signed}
+            for cid, sid, buyer, cpv, value, signed in self.session.execute(
+                select(Contract.id, _supplier_id(), Contract.buyer_nif,
+                       Contract.cpv, Contract.value, Contract.signed_date)
+                .join(ContractSupplier, ContractSupplier.contract_id == Contract.id)
+                .where(_supplier_id().in_(ids))
+                .where(Contract.signed_date.is_not(None))
+                .where(Contract.value.is_not(None))
+            )
+        ], settings)
 
         # First appearance anywhere, at any buyer: a firm that has worked for
         # the next câmara over for a decade is not new, however new it is here.

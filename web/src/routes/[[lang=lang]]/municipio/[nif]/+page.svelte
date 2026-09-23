@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
+	import { goto, replaceState } from '$app/navigation';
+	import { keepInView } from '$lib/keepInView';
 	import { page } from '$app/state';
 	import { api, signal, unmeasurable, verdict, type Company, type ContractRow } from '$lib/api';
 	import Chart from '$lib/Chart.svelte';
@@ -48,14 +49,21 @@
 	function setTab(id: TabId) {
 		const url = new URL(page.url);
 		id === 'geral' ? url.searchParams.delete('tab') : url.searchParams.set('tab', id);
-		// noScroll, then correct by hand. Letting the router scroll to the top threw
-		// the reader back to the hero on every tab, and not scrolling at all left
-		// them mid-panel on a narrow screen. Only move if the tab bar has actually
-		// gone off the top, and then only as far as the bar.
-		goto(url, { replaceState: true, keepFocus: true, noScroll: true }).then(() => {
-			const top = tabsEl?.getBoundingClientRect().top ?? 0;
-			if (top < 0) tabsEl?.scrollIntoView({ block: 'start', behavior: 'smooth' });
-		});
+		// SHALLOW, not goto. `load` reads url.searchParams for the year window, so
+		// SvelteKit treats the whole URL as a dependency and re-runs it on any
+		// search param change: every tab switch refetched score, 120 suppliers,
+		// rivals, contracts, map cells, stats, mandates, the municipality list
+		// and the config, and blocked the navigation until all nine returned.
+		// The tab chooses which of that already-loaded data to show; it is not an
+		// input to any of it. replaceState updates page.url, `tab` derives from
+		// it, and a deep link still reads the param on a real navigation.
+		replaceState(url, page.state);
+		// After the swap, never before it. The panels are wildly different
+		// heights, so the old panel's geometry says nothing about where the tab
+		// bar will be once the new one has rendered, and a tall panel replaced
+		// by a short one leaves the browser clamping the reader into the middle
+		// of something they did not open.
+		keepInView(tabsEl);
 	}
 
 	// how many suppliers the graph draws, the single biggest lever on clutter

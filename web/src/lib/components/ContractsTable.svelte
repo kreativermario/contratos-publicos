@@ -2,6 +2,7 @@
 	import { untrack } from 'svelte';
 	import { api, type ContractRow } from '$lib/api';
 	import Flags from '$lib/components/Flags.svelte';
+	import { keepInView } from '$lib/keepInView';
 	import Skeleton from '$lib/components/Skeleton.svelte';
 	import { dateShort, eur, num } from '$lib/format';
 	import { L, t } from '$lib/messages';
@@ -158,12 +159,17 @@
 		timer = setTimeout(() => {
 			autoPages = 0;
 			done = false;
-			fetchPage(0, true);
+			// Replacing the rows, not appending: 9000px of table can become four
+			// lines, the document shrinks under the reader and the browser clamps
+			// them somewhere they never asked to be. Put them back at the filters
+			// they just used, and only if those have scrolled off the top.
+			fetchPage(0, true).then(() => keepInView(filtersEl));
 		}, 250);
 		return () => clearTimeout(timer);
 	});
 
 	// Seamless scrolling: a sentinel below the table pulls the next page in.
+	let filtersEl = $state<HTMLDivElement | undefined>();
 	let sentinel = $state<HTMLDivElement | undefined>();
 	$effect(() => {
 		const el = sentinel;
@@ -179,7 +185,7 @@
 	});
 </script>
 
-<div class="filters">
+<div class="filters" bind:this={filtersEl}>
 	<label class="grow">
 		<span class="eyebrow">{t('tbl.searchObject')}</span>
 		<input type="search" bind:value={query} placeholder={t('tbl.searchObjectPlaceholder')} />

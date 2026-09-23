@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { keepInView } from '$lib/keepInView';
 	import { untrack } from 'svelte';
 	import Parties from '$lib/components/Parties.svelte';
 	import { api, type ContractRow, type StatRow } from '$lib/api';
@@ -81,14 +82,26 @@
 		openError = false;
 	});
 
-	async function toggle(label: string | number | null) {
+	async function toggle(label: string | number | null, btn?: HTMLElement) {
 		if (!expandable) return;
 		const key = String(label ?? '');
-		if (open === key) { open = null; return; }
+		if (open === key) {
+			open = null;
+			// Collapsing removes rows from under the reader. Harmless here, since
+			// they are all below this button, but the reader may have scrolled
+			// into them, and then this button is off the top of the window.
+			keepInView(btn);
+			return;
+		}
+		// Only one row is open at a time, so opening this one closes the other.
+		// If that one was ABOVE this button, its rows vanish and everything below
+		// slides up: the row just clicked can end up above the top of the window,
+		// which reads as the page having jumped somewhere at random.
 		open = key;
 		openRows = [];
 		openError = false;
 		openTotal = rows.find((r) => String(r.label ?? '') === key)?.contracts ?? 0;
+		await keepInView(btn);
 		await loadMore(key);
 	}
 
@@ -144,7 +157,7 @@
 				<tr class:expandable class:open={open === key}>
 					<th scope="row" data-label={unitLabel}>
 						{#if expandable}
-							<button class="row-open" aria-expanded={open === key} onclick={() => toggle(r.label)}>
+							<button class="row-open" aria-expanded={open === key} onclick={(e) => toggle(r.label, e.currentTarget)}>
 								<span class="twist" aria-hidden="true">{open === key ? '▾' : '▸'}</span>
 								{r.label ?? t('common.na')}
 							</button>

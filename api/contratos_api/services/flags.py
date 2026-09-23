@@ -207,14 +207,21 @@ def slice_groups(rows: list[dict], settings: Settings) -> dict[int, tuple[int, f
     """Contracts that sit in a run of similar awards under one ceiling.
 
     Grouped in Python rather than SQL because the rule is a shape rather than a
-    filter: same firm, same kind of work, close together in time, each one under
-    a ceiling the run as a whole clears. Expressing that as one statement makes
-    it unreadable and untestable, and the input is one page of contracts.
+    filter: same buyer, same firm, same kind of work, close together in time,
+    each one under a ceiling the run as a whole clears. Expressing that as one
+    statement makes it unreadable and untestable.
 
-    `rows` must carry id, signed_date, value and cpv, plus either a supplier id
-    or the parties to read one from.
+    **`rows` must be every contract those firms hold, not the page on screen.**
+    Grouping the page alone made the flag depend on pagination and on the sort:
+    three awards split across a page boundary were invisible, and the same
+    contract showed the flag under one sort and not another. It never produced a
+    false positive, since every condition holds regardless of which rows are in
+    front of it, but a chip that comes and goes is worse than a conservative one.
+
+    Each row carries id, signed_date, value, cpv and buyer_nif, plus either a
+    `sid` (what the repository selects) or the parties to read one from.
     """
-    buckets: dict[tuple[str, str], list[dict]] = defaultdict(list)
+    buckets: dict[tuple[str, str, str], list[dict]] = defaultdict(list)
     for row in rows:
         signed, value = row.get("signed_date"), row.get("value")
         if not signed or value is None:
@@ -223,10 +230,14 @@ def slice_groups(rows: list[dict], settings: Settings) -> dict[int, tuple[int, f
         # the sector table groups by. A finer key would split a run of near
         # identical jobs across codes that differ in their last digits.
         division = (row.get("cpv") or "")[:2]
-        for party in (row.get("parties") or []):
-            sid = supplier_id(party)
+        # The buyer is part of the key: one firm doing three small jobs for
+        # three different câmaras is three ordinary jobs, not a split contract.
+        buyer = str(row.get("buyer_nif") or "")
+        sids = ([row["sid"]] if row.get("sid")
+                else [supplier_id(p) for p in (row.get("parties") or [])])
+        for sid in sids:
             if sid:
-                buckets[(sid, division)].append(row)
+                buckets[(buyer, sid, division)].append(row)
 
     out: dict[int, tuple[int, float]] = {}
     for group in buckets.values():

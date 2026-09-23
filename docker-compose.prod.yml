@@ -56,6 +56,13 @@ x-appenv: &appenv
   API_CORS_ORIGINS: ${API_CORS_ORIGINS}
   APIABERTA_KEY: ${APIABERTA_KEY}
   COMPANY_LOOKUP_ENABLED: ${COMPANY_LOOKUP_ENABLED}
+  # The key is a credential and arrives from the GitHub environment like the
+  # other three. Empty and the backfill logs that and exits, which is the
+  # correct behaviour for a stack that has not been given one.
+  COMPANY_NIFPT_KEY: ${COMPANY_NIFPT_KEY}
+  # The one quota knob worth setting from outside: raise it after buying
+  # credits, lower it if the register starts complaining.
+  COMPANY_NIFPT_DAILY: ${COMPANY_NIFPT_DAILY:-90}
 
 services:
   # There is no db-init one-shot here any more, and the reason is a mount path
@@ -295,6 +302,30 @@ services:
     entrypoint: ["/bin/sh", "-c"]
     command:
       - "while :; do python -m contratos_ingest delta || true; sleep ${INGEST_DELTA_INTERVAL:-86400}; done"
+    user: "10001:10001"
+    environment: *appenv
+    depends_on:
+      db: {condition: service_healthy}
+      migrate: {condition: service_completed_successfully}
+    tmpfs: ["/tmp"]
+
+  # The company backfill. Separate from the two ingest loops because it is the
+  # only thing here that spends a quota: nif.pt allows one request a minute and
+  # a hundred a day on the free key, so this is what may talk to it and the
+  # public API is not. It paces itself and stops at COMPANY_NIFPT_DAILY, which
+  # means the sleep below only decides how often it goes looking, never how
+  # hard it hits the register. API_IMAGE, not INGEST_IMAGE: the lookup and its
+  # cache live in contratos_api.
+  #
+  # Inert with no key: it logs that and exits, so a stack with COMPANY_NIFPT_KEY
+  # unset simply idles here. Same ponytail ceiling as the ingest loops.
+  empresas:
+    <<: *hardening
+    image: ${API_IMAGE}
+    mem_limit: ${MEM_EMPRESAS:-256m}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - "while :; do python -m contratos_api.backfill || true; sleep ${COMPANY_BACKFILL_INTERVAL:-86400}; done"
     user: "10001:10001"
     environment: *appenv
     depends_on:
