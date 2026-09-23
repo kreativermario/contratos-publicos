@@ -6,6 +6,9 @@ no address, no age. Two outside sources fill part of that gap.
   1. api.ptdata.org  one JSON call, aggregates SICAE and VIES.
   2. sicae.pt        the Ministry of Justice CAE register, the legally
                      authoritative source, served as HTML.
+  3. nif.pt          quota'd behind a key, so never called from a public
+                     request. Only source carrying activity status and the
+                     concelho the firm is registered in.
 
 The aggregator is tried first because it answers in one request and carries the
 address; SICAE is the fallback because it is the official register and will
@@ -258,10 +261,41 @@ def parse_aggregator(payload: dict) -> dict | None:
     }
 
 
+def parse_nifpt(payload: dict) -> dict | None:
+    """Normalise nif.pt's envelope into our own shape.
+
+    It keys the record by the NIF itself rather than returning one object, and
+    answers a miss with `result != "success"`. Contacts and capital social are
+    deliberately dropped: a phone number and an email belong to somebody, this
+    site has no use for either, and storing them would make it a directory of
+    people rather than of contracts.
+    """
+    if (payload or {}).get("result") != "success":
+        return None
+    records = payload.get("records") or {}
+    data = next(iter(records.values()), None)
+    if not isinstance(data, dict) or not data.get("title"):
+        return None
+    cae = str(data.get("cae") or "").strip()
+    geo = data.get("geo") or {}
+    return {
+        "name": data.get("title") or None,
+        "address": data.get("address") or None,
+        "status": (data.get("status") or None),
+        "county": geo.get("county") or None,
+        "cae": ([{"code": cae, "description": data.get("activity") or None,
+                  "type": "principal"}] if cae else []),
+    }
+
+
 @dataclass(slots=True)
 class CompanyLookup:
     session: Session
     settings: Settings
+    #: nif.pt is quota'd at one request a minute, so a public request must never
+    #: reach it: it would either block for a minute or burn the daily budget on
+    #: whoever clicked first. Only the backfill one-shot sets this.
+    allow_nifpt: bool = False
 
     def get(self, nif: str) -> dict | None:
         """Cached profile for a NIF, fetching from the registries on a miss."""
@@ -299,6 +333,14 @@ class CompanyLookup:
             if parsed:
                 profile = parsed | {"source": "ptdata"}
 
+        extra = self._nifpt(nif)
+        if extra:
+            # nif.pt fills the gaps rather than overwriting: the aggregator and
+            # SICAE carry the legally authoritative name and CAE list, and only
+            # nif.pt carries status and county.
+            profile = (extra | {k: v for k, v in (profile or {}).items() if v}
+                       ) | {"source": (profile or {}).get("source") or "nifpt"}
+
         if not profile:
             sicae = self._read(
                 f"{self.settings.company_sicae_base.rstrip('/')}/Detalhe.aspx?NIPC={nif}"
@@ -314,6 +356,20 @@ class CompanyLookup:
         )
         profile["founded_year"] = self._founded(nif)
         return profile
+
+    def _nifpt(self, nif: str) -> dict | None:
+        """The quota'd source, fetched only when the caller is allowed to pace itself."""
+        key = self.settings.company_nifpt_key
+        if not (self.allow_nifpt and key):
+            return None
+        base = self.settings.company_nifpt_base.rstrip("/")
+        raw = self._read(f"{base}/?json=1&q={nif}&key={key}")
+        if not raw:
+            return None
+        try:
+            return parse_nifpt(json.loads(raw))
+        except (ValueError, TypeError):
+            return None
 
     def _founded(self, nif: str) -> int | None:
         base = self.settings.company_founded_base.rstrip("/")
@@ -345,6 +401,8 @@ class CompanyLookup:
             "cae": (data or {}).get("cae"),
             "founded_year": (data or {}).get("founded_year"),
             "legal_form": (data or {}).get("legal_form"),
+            "status": (data or {}).get("status"),
+            "county": (data or {}).get("county"),
             "source": (data or {}).get("source"),
             "found": data is not None,
             "fetched_at": datetime.now(timezone.utc),
@@ -370,5 +428,7 @@ class CompanyLookup:
             # bound, not a fact, and the interface must not print it as one
             "founded_exact": bool(row.founded_year and row.founded_year > REGISTER_FLOOR),
             "legal_form": row.legal_form,
+            "status": row.status,
+            "county": row.county,
             "source": row.source,
         }

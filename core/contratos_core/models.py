@@ -132,6 +132,13 @@ class CompanyProfile(Base):
     # read off the firm name, not off a registry: free, and the only source that
     # tells "Unipessoal" apart without paying for a report
     legal_form: Mapped[str | None] = mapped_column(Text)
+    # "active" / "inactive" as the register has it. A dissolved firm still
+    # winning contracts is the one red flag this lookup can state as a fact.
+    status: Mapped[str | None] = mapped_column(String(16))
+    # concelho the firm is registered in. The procurement data has no supplier
+    # address at all, and localExecucao is where the work happens, not where the
+    # firm lives, so this is the only thing that can answer "local or outsider".
+    county: Mapped[str | None] = mapped_column(Text)
     source: Mapped[str | None] = mapped_column(String(16))
     # a miss is cached too, so a firm with no registry entry is not refetched
     found: Mapped[bool] = mapped_column(Boolean, default=True)
