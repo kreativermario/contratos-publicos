@@ -247,6 +247,14 @@ Consequences worth keeping:
   which keys are money (`limit`, `gap`, `value`) and runs `eur()` at render. A
   formatted amount is prose and would print Portuguese euros on the English
   pages, and keep printing them for an hour, like any other cached string.
+- **`estreante` needs the win to be uncontested, not just the debut to be
+  recent.** This is condition (3) of the newcomer rule below, and leaving it out
+  is the mistake that rule already warns about. Without it the flag fired on
+  eight of the first forty contracts in Odivelas, every one an open concurso
+  público: a new firm beating other bidders is a new firm doing the ordinary
+  thing. Uncontested is the repository's own pair, an ajuste direto or a tender
+  it was alone in. Undisclosed bidders is **not** alone: `n_bidders` is None for
+  most of the record.
 - **`estreante` counts from the first public contract, not from incorporation.**
   No free source publishes a founding date, so the sentence reads "primeiro
   contrato público há {months} meses" and the tooltip says the firm may be much
@@ -419,6 +427,13 @@ amarelo #f6ce00 azulejo #007ca6 manjerico #11ad32
 display: Bowlby One   body: Archivo   (both self-hosted, CSP stays 'self')
 ```
 
+**The network graph paints settled, not settling.** ECharts force layout
+animates every step of the simulation by default, and at the friction these
+graphs use the nodes drift for seconds before they stop, which reads as the tab
+still loading rather than as a flourish. `layoutAnimation: false` solves the
+layout up front and paints it once. At forty nodes that costs nothing
+measurable, and it is what `prefers-reduced-motion` would ask for anyway.
+
 **The poster system.** Three decisions, made once, applied everywhere:
 
 - **Titles are a block, not an outline.** Cream letters on a solid ink inline
@@ -524,9 +539,18 @@ the amount and the unit separately; the unit goes in a `.unit` span (Archivo
   the municipality list and the config, and blocked the navigation until all
   nine returned: the Rede tab looked like it was hanging. Tabs choose which
   already-loaded data to show and are not an input to any of it, so they use
-  **shallow routing** (`replaceState` from `$app/navigation`), which updates
-  `page.url` without re-running `load`. A deep link still reads the param on a
-  real navigation.
+  **shallow routing** (`replaceState` from `$app/navigation`).
+- **`replaceState` does not update `page.url`.** This is the trap the line above
+  walks straight into. Read `client.js`: it writes the address bar with
+  `history.replaceState`, sets `page.state`, re-clones the page object, and
+  touches `page.url` never. Shallow routing carries `page.state`, not the URL.
+  So a tab derived from `page.url.searchParams` never moved: every click
+  rewrote the address bar while the panel stayed put, which reads as a tab that
+  will not load. The reader's choice lives in component state (`chosenTab`) and
+  the URL is kept in step only so a tab can be shared. `urlTab` still wins when
+  it changes, because it can only change on a real navigation: a deep link, or
+  the chart click that sends the reader to the contracts table with a filter
+  already applied.
 - **A scroll position is a number, not a place.** Filtering a table, switching a
   tab and expanding a row all swap a tall block for a short one, and the same
   pixel offset then lands somewhere the reader never asked to be: filter a

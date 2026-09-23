@@ -40,9 +40,27 @@
 	type TabId = (typeof TABS)[number]['id'];
 	const isTab = (v: string | null): v is TabId => TABS.some((t) => t.id === v);
 
-	// Driven by the URL so a tab can be linked, bookmarked and reached with Back.
-	const tab = $derived<TabId>(isTab(page.url.searchParams.get('tab'))
+	// The tab a real navigation asks for: a deep link, or a chart click that
+	// sends the reader to the contracts table with a filter already applied.
+	const urlTab = $derived<TabId>(isTab(page.url.searchParams.get('tab'))
 		? (page.url.searchParams.get('tab') as TabId) : 'geral');
+
+	// And the tab the reader chose since then, which the URL cannot tell us.
+	//
+	// `replaceState` writes the address bar and sets `page.state`; it does NOT
+	// update `page.url` (see client.js: it clones the page object and assigns
+	// state, nothing else). Deriving the tab from `page.url` alone therefore
+	// left every click updating the address bar while the panel never moved,
+	// which looked exactly like a tab that would not load. So the reader's
+	// choice lives here, and the URL stays in step only so it can be shared.
+	let chosenTab = $state<TabId | null>(null);
+	// A real navigation outranks it: `urlTab` only ever changes when one has
+	// happened, since a shallow update leaves `page.url` alone.
+	$effect(() => {
+		urlTab;
+		chosenTab = null;
+	});
+	const tab = $derived<TabId>(chosenTab ?? urlTab);
 
 	let tabsEl = $state<HTMLElement | undefined>();
 
@@ -57,6 +75,9 @@
 		// The tab chooses which of that already-loaded data to show; it is not an
 		// input to any of it. replaceState updates page.url, `tab` derives from
 		// it, and a deep link still reads the param on a real navigation.
+		chosenTab = id;
+		// The address bar only, so the tab can still be copied and shared. The
+		// panel is already switching off `chosenTab` above.
 		replaceState(url, page.state);
 		// After the swap, never before it. The panels are wildly different
 		// heights, so the old panel's geometry says nothing about where the tab

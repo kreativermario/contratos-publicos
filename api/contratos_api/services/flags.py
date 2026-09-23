@@ -88,6 +88,17 @@ def _is_ajuste(row: dict) -> bool:
     return "ajuste direto" in (row.get("procedure") or "").lower()
 
 
+def _uncontested(row: dict) -> bool:
+    """Won without competition: an ajuste direto, or a tender it was alone in.
+
+    The same pair the repository calls a soft win, and the same one the backfill
+    ranks on. An open tender whose bidder count is simply not disclosed is NOT
+    uncontested: `n_bidders` is None for about 58% of the record, and reading
+    that as "alone" would flag most of the register.
+    """
+    return _is_ajuste(row) or row.get("n_bidders") == 1
+
+
 def _months_between(earlier: date | None, later: date | None) -> int | None:
     if not earlier or not later or later < earlier:
         return None
@@ -133,7 +144,14 @@ def flags_for(row: dict, settings: Settings,
     # Not its founding date: no free source publishes that, and saying "abriu
     # há 4 meses" would be a claim this data cannot support. The sentence says
     # first public contract, because that is the fact we hold.
-    debut_months = _recent_debut(parties, signed, settings, ctx)
+    #
+    # And only when the win came WITHOUT competition. A new firm that entered an
+    # open tender and beat other bidders is not what this is looking for; it is
+    # a new firm doing the ordinary thing. The first version of this flag left
+    # that condition out and fired on eight of the first forty contracts in
+    # Odivelas, every one of them an open concurso público.
+    debut_months = (_recent_debut(parties, signed, settings, ctx)
+                    if _uncontested(row) else None)
     if debut_months is not None:
         found.append({"key": "estreante", "data": {"months": debut_months}})
 

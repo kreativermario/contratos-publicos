@@ -283,9 +283,19 @@ export function graphOption(
 			categories: categories.map((c) => ({ name: c.name, itemStyle: { color: c.colour } })),
 			// Long edges and hard repulsion are what stop the hairball, but the same
 			// numbers in a 322px box throw most of the nodes off the canvas.
-			force: narrow
-				? { repulsion: 120, edgeLength: [24, 70], gravity: 0.22, friction: 0.22 }
-				: { repulsion: 420, edgeLength: [70, 240], gravity: 0.06, friction: 0.18 },
+			//
+			// layoutAnimation off: the default animates every step of the
+			// simulation, and with friction this low the nodes drift for seconds
+			// before they settle, which reads as the tab still loading rather
+			// than as a flourish. Off, ECharts solves the layout and paints it
+			// settled. At forty nodes that costs nothing measurable, and it is
+			// the right answer for prefers-reduced-motion anyway.
+			force: {
+				layoutAnimation: false,
+				...(narrow
+					? { repulsion: 120, edgeLength: [24, 70], gravity: 0.22, friction: 0.22 }
+					: { repulsion: 420, edgeLength: [70, 240], gravity: 0.06, friction: 0.18 })
+			},
 			// labels that overprint each other read as a smear; ECharts can just
 			// drop the ones that would collide
 			labelLayout: { hideOverlap: true },
