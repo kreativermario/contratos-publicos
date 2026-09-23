@@ -26,9 +26,8 @@ podman compose --profile tools run --rm ingest impic
 Tests:
 
 ```bash
-python ingest/tests/test_parsers.py
-podman compose run --rm --entrypoint python api /app/tests/test_newcomer.py
-podman compose --profile tools run --rm --entrypoint python ingest /app/tests/core/test_settings.py
+pip install -e './core[test]' -e ./api -e ./ingest   # once, in a venv
+pytest
 cd web && npx svelte-check
 ```
 
@@ -84,10 +83,10 @@ and should not be relitigated. Read it before proposing a new data source.
 ## Tests
 
 Non-trivial logic leaves one runnable check behind: the smallest thing that
-fails if the logic breaks. No frameworks, no fixtures. A `__main__` test runner
-belongs at the **bottom** of its file, because it iterates `globals()` at the
-moment it executes, so a test added below it never runs and never reports that
-it did not.
+fails if the logic breaks. pytest collects it, which means a plain `test_*`
+function full of bare asserts in one of the three `tests/` directories, and
+nothing else: no fixtures, no plugins, no class wrapper. Anything needing a
+database is not a unit test and does not belong in this suite.
 
 ## Licensing your contribution
 

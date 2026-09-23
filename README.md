@@ -2,6 +2,13 @@
 
 **[ondevaiparar.pt](https://ondevaiparar.pt)** | [English](https://ondevaiparar.pt/en)
 
+[![Deploy](https://img.shields.io/github/actions/workflow/status/kreativermario/contratos-publicos/deploy.yml?branch=main&label=deploy&logo=github)](https://github.com/kreativermario/contratos-publicos/actions/workflows/deploy.yml)
+[![tests](https://img.shields.io/github/actions/workflow/status/kreativermario/contratos-publicos/tests.yml?branch=main&label=tests&logo=github)](https://github.com/kreativermario/contratos-publicos/actions/workflows/tests.yml)
+[![secrets](https://img.shields.io/github/actions/workflow/status/kreativermario/contratos-publicos/secrets.yml?branch=main&label=secrets&logo=github)](https://github.com/kreativermario/contratos-publicos/actions/workflows/secrets.yml)
+[![code: AGPL-3.0](https://img.shields.io/badge/code-AGPL--3.0-df2225)](LICENSE)
+[![content: CC BY 4.0](https://img.shields.io/badge/content-CC%20BY%204.0-007ca6)](LICENSE-CONTENT)
+[![last commit](https://img.shields.io/github/last-commit/kreativermario/contratos-publicos?color=a06a00)](https://github.com/kreativermario/contratos-publicos/commits/main)
+
 Who gets the money from Portuguese municipal councils, and by which procedure.
 Analytics over the public contract register (Portal BASE / IMPIC), starting
 with one município and built to take all 308.
@@ -235,14 +242,8 @@ Setúbal. It touches neither the schema nor the database.
 Tests:
 
 ```bash
-python ingest/tests/test_parsers.py
-docker compose run --rm --entrypoint python api /app/tests/test_newcomer.py
-docker compose run --rm --entrypoint python api /app/tests/test_scoring_keys.py
-docker compose run --rm --entrypoint python api /app/tests/test_router_calls.py
-docker compose run --rm --entrypoint python api /app/tests/test_company_parsers.py
-docker compose run --rm --entrypoint python api /app/tests/test_legal_form.py
-docker compose --profile tools run --rm --entrypoint python ingest \
-  /app/tests/core/test_settings.py
+pip install -e './core[test]' -e ./api -e ./ingest   # once, in a venv
+pytest                                               # all three packages
 cd web && npm run check        # svelte-check plus the message parity check
 ```
 

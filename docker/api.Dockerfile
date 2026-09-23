@@ -17,7 +17,6 @@ RUN uv venv /venv \
 FROM python:3.13-alpine
 RUN adduser -D -u 10001 -h /home/app app
 COPY --from=build /venv /venv
-COPY --chown=10001:10001 tests /app/tests
 ENV PATH="/venv/bin:$PATH" \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \

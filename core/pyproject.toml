@@ -9,6 +9,11 @@ dependencies = [
     "pydantic-settings>=2.15.0",
 ]
 
+[project.optional-dependencies]
+# The suite needs no database and no container: pytest on a venv is the whole
+# of it. Lives here because api and ingest both depend on this package.
+test = ["pytest>=8.4"]
+
 [build-system]
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"

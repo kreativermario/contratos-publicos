@@ -51,9 +51,3 @@ def test_a_missing_score_still_lands_in_a_band():
 
 # The runner iterates globals() as it executes, so it belongs at the bottom:
 # a test added below it would never run and never say that it did not.
-if __name__ == "__main__":
-    for name, fn in list(globals().items()):
-        if name.startswith("test_"):
-            fn()
-            print("ok", name)
-    print("all passed")

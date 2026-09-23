@@ -3,7 +3,6 @@
 Three conditions have to hold together, and each one exists because leaving it
 out produced a visible wrong answer on the live site.
 """
-import sys
 from datetime import date
 
 from contratos_api.repositories import newcomer_verdict
@@ -63,12 +62,3 @@ def test_a_late_first_win_here_is_not_a_debut_here():
     # new to the record in 2026 but only won here much later: not its doorway
     assert newcomer_verdict(date(2026, 1, 1), date(2027, 6, 1), START, WINDOW,
                             period_end=date(2027, 6, 1), soft_win=True) is False
-
-
-if __name__ == "__main__":
-    for name, fn in sorted(globals().items()):
-        if name.startswith("test_"):
-            fn()
-            print("ok", name)
-    print("all passed")
-    sys.exit(0)
