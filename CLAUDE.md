@@ -527,6 +527,21 @@ the amount and the unit separately; the unit goes in a `.unit` span (Archivo
   **shallow routing** (`replaceState` from `$app/navigation`), which updates
   `page.url` without re-running `load`. A deep link still reads the param on a
   real navigation.
+- **A scroll position is a number, not a place.** Filtering a table, switching a
+  tab and expanding a row all swap a tall block for a short one, and the same
+  pixel offset then lands somewhere the reader never asked to be: filter a
+  9000px table to four rows and the browser clamps them to the new bottom. On a
+  phone, where the viewport holds one or two of these blocks, it fires on nearly
+  every interaction. `keepInView(el)` is the whole answer, used at all three
+  sites: await `tick()` so the measurement is taken against the layout that now
+  exists, then scroll `el` back to the top **only if it has drifted above the
+  window**. Moving the page under somebody who can already see what they clicked
+  is its own kind of wrong. Measuring before the DOM settles reads the geometry
+  that just stopped being true, which is the bug in its own right.
+- **Only one StatTable row is open at a time, so opening one closes another.**
+  When the one that closes was above the one just clicked, its rows vanish and
+  everything below slides up, carrying the clicked row off the top of the
+  window. That is why `toggle` takes the button element.
 - **A chart that is unsized when its option arrives never draws.** `Chart.svelte`
   refuses `setOption` on a box with no width or height, because zrender inverts
   the geo transform on every resize and `invert()` returns null for the singular

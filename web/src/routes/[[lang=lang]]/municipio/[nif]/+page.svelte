@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto, replaceState } from '$app/navigation';
+	import { keepInView } from '$lib/keepInView';
 	import { page } from '$app/state';
 	import { api, signal, unmeasurable, verdict, type Company, type ContractRow } from '$lib/api';
 	import Chart from '$lib/Chart.svelte';
@@ -57,8 +58,12 @@
 		// input to any of it. replaceState updates page.url, `tab` derives from
 		// it, and a deep link still reads the param on a real navigation.
 		replaceState(url, page.state);
-		const top = tabsEl?.getBoundingClientRect().top ?? 0;
-		if (top < 0) tabsEl?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+		// After the swap, never before it. The panels are wildly different
+		// heights, so the old panel's geometry says nothing about where the tab
+		// bar will be once the new one has rendered, and a tall panel replaced
+		// by a short one leaves the browser clamping the reader into the middle
+		// of something they did not open.
+		keepInView(tabsEl);
 	}
 
 	// how many suppliers the graph draws, the single biggest lever on clutter
