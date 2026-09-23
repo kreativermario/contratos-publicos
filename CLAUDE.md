@@ -606,10 +606,18 @@ the amount and the unit separately; the unit goes in a `.unit` span (Archivo
   without the new keys renders as zeros and empty sections. Every API request
   carries the SvelteKit build id so a new bundle never reads an old one's cache.
   The same cache is why the API must ship keys and not prose.
-- `create_all` creates missing *tables*, not missing *columns*. Adding a field
-  to an existing model needs the table dropped (fine for the profile cache) or
-  a real migration. The `migrate` one-shot in the prod stack runs `create_all`
-  on every deploy and will not save you here.
+- **`create_all` creates missing *tables*, not missing *columns*.** On its own
+  it silently ignores a table that exists but has drifted, which is how `status`
+  and `county` reached production as columns the ORM had and Postgres did not,
+  500ing every request that read them. `Database.create_all` now follows it with
+  `add_missing_columns`, so the `migrate` one-shot the prod stack already runs
+  ahead of the API brings columns up too, and there is no server to log into.
+  It is **additive only** and refuses anything else by name: a NOT NULL column
+  with no default has nothing to put in the existing rows, and a primary key
+  cannot be introduced after the fact. A rename, a type change or a drop is
+  still a real migration, and that is the point at which this gets swapped for
+  Alembic. `core/tests/test_schema_sync.py` tests the decision without a
+  database; the ALTER itself is two lines around it.
 - `server_tokens off` hides the nginx *version*, but stock nginx cannot drop the
   `Server` header itself; that needs `headers_more`. In production Cloudflare
   replaces it with its own on the way out, so it never reaches a reader.
