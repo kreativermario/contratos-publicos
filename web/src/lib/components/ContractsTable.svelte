@@ -262,14 +262,14 @@
 				<tr>
 					<td class="obj wide" data-label={t('tbl.object')}
 						><a href={L(`/contrato/${c.id}`)}>{c.object ?? t('common.noDescription')}</a><span
-							class="date num">{dateShort(c.signed_date)}</span></td>
+							class="date num">{dateShort(c.signed_date)}</span><Flags flags={c.flags} /></td>
 					<td data-label={t('tbl.supplier')}>{c.suppliers.join(', ') || t('common.na')}</td>
 					<td data-label={t('tbl.procedure')}>
 						<span class="proc" class:ad={/ajuste direto/i.test(c.procedure ?? '')}
 							>{c.procedure ?? t('common.na')}</span>
 					</td>
 					<td class="r num" data-label={t('tbl.bidders')}>{c.n_bidders ?? t('common.na')}</td>
-					<td class="r num money" data-label={t('tbl.value')}>{eur(c.value)}<Flags flags={c.flags} nearLimit={c.near_limit} value={c.value} /></td>
+					<td class="r num money" data-label={t('tbl.value')}>{eur(c.value)}</td>
 				</tr>
 			{/each}
 			{#if busy}

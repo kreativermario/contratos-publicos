@@ -7,10 +7,11 @@ from sqlalchemy.orm import Session
 
 from datetime import date
 
-from contratos_core import (CONCELHOS, CPV_SECTORS, Contract, ContractBidder,
-                             ContractLocation, ContractSupplier, Entity,
-                             Mandate, concelho_name, dico_for, divisions_for,
-                             sector_for)
+from contratos_core import (CONCELHOS, CPV_SECTORS, CompanyProfile, Contract,
+                             ContractBidder, ContractLocation, ContractSupplier,
+                             Entity, Mandate, Settings, concelho_name, dico_for,
+                             divisions_for, sector_for)
+from .services.flags import FlagContext, slice_groups, supplier_id
 
 from .services.company import legal_form_from_name, legal_form_sql
 
@@ -770,6 +771,60 @@ class MunicipalityRepository:
                 period_end=period_end, soft_win=r.pop("soft_win", None)
             )
 
+    def flag_context(self, rows: list[dict], settings: Settings,
+                     nif: str | None = None) -> FlagContext:
+        """Everything the contract flags need that one row cannot see.
+
+        Four lookups for a whole page rather than four per row. A page of fifty
+        contracts touches at most a few hundred suppliers, so each of these is
+        one indexed query against a small `IN` list.
+        """
+        ctx = FlagContext(sliced=slice_groups(rows, settings))
+        ids = {supplier_id(p) for r in rows for p in (r.get("parties") or [])}
+        ids.discard(None)
+        if not ids:
+            return ctx
+        ids = list(ids)
+
+        # First appearance anywhere, at any buyer: a firm that has worked for
+        # the next câmara over for a decade is not new, however new it is here.
+        ctx.debut = dict(self.session.execute(
+            select(_supplier_id(), func.min(Contract.signed_date))
+            .join(Contract, Contract.id == ContractSupplier.contract_id)
+            .where(_supplier_id().in_(ids))
+            .group_by(_supplier_id())
+        ).all())
+        ctx.dataset_start = self.session.scalar(select(func.min(Contract.signed_date)))
+
+        # Contracts held with THIS buyer, and how many of them came without
+        # competition. Scoped to the buyer because "never went to tender" is a
+        # statement about this câmara, not about the firm's whole life.
+        uncontested = func.count().filter(
+            or_(Contract.procedure.ilike(AJUSTE_DIRETO), Contract.n_bidders == 1)
+        )
+        # Only from a buyer's side. Read from one firm's page the same rows
+        # span every câmara it works for, and "nenhum a concurso" across all of
+        # them is a different sentence from the one this flag makes.
+        ctx.here = {} if not nif else {
+            sid: (total, few) for sid, total, few in self.session.execute(
+                select(_supplier_id(), func.count(), uncontested)
+                .join(Contract, Contract.id == ContractSupplier.contract_id)
+                .where(Contract.buyer_nif == nif)
+                .where(_supplier_id().in_(ids))
+                .group_by(_supplier_id())
+            )
+        }
+
+        # Status is whatever the register says TODAY, never at signing, and the
+        # sentence the reader gets says so.
+        ctx.inactive = set(self.session.scalars(
+            select(CompanyProfile.nif)
+            .where(CompanyProfile.nif.in_(ids))
+            .where(CompanyProfile.status.is_not(None))
+            .where(CompanyProfile.status != "active")
+        ).all())
+        return ctx
+
     def rivals(self, nif: str, limit: int, year_from=None, year_to=None,
                date_from=None, date_to=None) -> list[dict]:
         """Firms that keep turning up in the same tender. Only the ~42% of contracts
@@ -817,6 +872,9 @@ class MunicipalityRepository:
             select(
                 Contract.id, Contract.object, Contract.procedure, Contract.value,
                 Contract.signed_date, Contract.year, Contract.cpv_desc,
+                # the code as well as its label: slice groups key on its
+                # division, and the schema drops it again on the way out
+                Contract.cpv,
                 Contract.n_bidders, Contract.ad_justification,
                 # name and NIF together, not two parallel arrays: a row has to be
                 # able to link to the right company page, and two aggregates over

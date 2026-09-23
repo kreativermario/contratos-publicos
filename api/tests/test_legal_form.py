@@ -1,5 +1,4 @@
 """Reading the legal form off a firm name, and the register's 2006 floor."""
-import sys
 
 from contratos_api.services.company import (REGISTER_FLOOR, legal_form_from_name,
                                              parse_founded)
@@ -103,13 +102,3 @@ def test_a_name_that_reads_as_a_person():
                  "Signinum, Gestão de Património Cultural",             # a comma name
                  None, ""):
         assert not looks_like_person_name(name), name
-
-
-if __name__ == "__main__":
-    # Defined at the bottom on purpose: it runs whatever is in globals() at the
-    # time, so a test added after it would silently never run.
-    for name, fn in sorted(globals().items()):
-        if name.startswith("test_"):
-            fn()
-            print("ok", name)
-    print("all passed")

@@ -20,11 +20,6 @@ jobs:
     name: core, api, ingest
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    env:
-      # No test here touches a database: the router test binds signatures, the
-      # rest are pure functions. Settings still demands the URL, so give it one
-      # that is syntactically valid and connects to nothing.
-      DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ci
     steps:
       - uses: actions/checkout@v5
 
@@ -33,21 +28,11 @@ jobs:
           python-version: '3.12'
 
       - name: Install the three packages
-        run: pip install -e ./core -e ./api -e ./ingest
+        run: pip install -e './core[test]' -e ./api -e ./ingest
 
-      # Each file is its own runner under `__main__`; there is no pytest here
-      # and adding one would only wrap what already runs. Loop so one failure
-      # does not hide the others, and fail the job at the end.
-      - name: Run the test files
-        run: |
-          set -uo pipefail
-          rc=0
-          for f in core/tests/test_*.py api/tests/test_*.py ingest/tests/test_*.py; do
-            echo "::group::$f"
-            python "$f" || rc=1
-            echo "::endgroup::"
-          done
-          exit $rc
+      # testpaths and the database URL live in pytest.ini and conftest.py, so
+      # this runs the same way here as it does on a laptop.
+      - run: pytest
 
   web:
     name: web

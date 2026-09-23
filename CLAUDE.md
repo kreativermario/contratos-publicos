@@ -75,7 +75,7 @@ disclaimer.
 core/     contratos_core    ORM models, settings, session factory, CPV sectors,
                             concelho/district tables
 ingest/   contratos_ingest  sources/{impic,apiaberta,autarquicas}, repository, CLI
-api/      contratos_api     routers, services/{scoring,company}, repositories
+api/      contratos_api     routers, services/{scoring,company,flags}, repositories
 web/      SvelteKit + ECharts, built static, served by nginx
 nginx/    reverse proxy, security headers, SPA fallback
 docker/   api.Dockerfile, ingest.Dockerfile, web.Dockerfile
@@ -226,6 +226,54 @@ shown.
 Concentration is a Herfindahl index over every supplier, not a top-3 share:
 68% held by three of six firms and 68% held by three of 232 are not the same
 market, and only HHI says so.
+
+## Contract flags
+
+`services/flags.py`. Patterns worth a second look on one contract row, shown as
+chips under the description. Every one of them is legal and none is a finding.
+
+**The chip states the fact, with its numbers. It never names a category.** This
+is the rule the module exists to serve, and it was arrived at the hard way: a
+chip reading "às fatias" or "fracionamento" tells a reader nothing and sends
+them hunting for a tooltip, while "3 contratos, todos abaixo de 20 000 €" is
+understood on sight by anybody. So a flag travels as `{key, data}`: the key
+picks the sentence out of `messages.ts` and `data` fills its `{placeholders}`.
+The API still ships no prose, it ships enough for the sentence to be specific.
+The tooltip carries the caveat, never the meaning.
+
+Consequences worth keeping:
+
+- **Money crosses the wire as a number, never formatted.** `Flags.svelte` knows
+  which keys are money (`limit`, `gap`, `value`) and runs `eur()` at render. A
+  formatted amount is prose and would print Portuguese euros on the English
+  pages, and keep printing them for an hour, like any other cached string.
+- **`estreante` counts from the first public contract, not from incorporation.**
+  No free source publishes a founding date, so the sentence reads "primeiro
+  contrato público há {months} meses" and the tooltip says the firm may be much
+  older. "Abriu há 4 meses" would be a claim this data cannot support.
+- **`fechada` is about today.** The register reports current status, so the
+  sentence must not imply the firm was closed when it signed.
+- **The chips are Archivo, not the display face.** They carry sentences now, and
+  Bowlby One set small and uppercase was legible as one word and a smudge as
+  six. They sit under the description, not in the value column, which is two
+  words wide and right-aligned.
+
+**Rules that need more than one row read a `FlagContext`**, filled once per page
+by `flag_context` rather than once per row: the supplier's first appearance
+anywhere, its record with this buyer, which NIFs the register no longer lists as
+active, and the slice groups. `nunca_a_concurso` is scoped to one buyer and is
+therefore silent on a supplier's own page, where the rows span every câmara the
+firm works for.
+
+`slice_groups` is grouped in Python, not SQL, on purpose: the rule is a shape
+(same firm, same kind of work, close in time, each under a ceiling the run as a
+whole clears) rather than a filter, and as one statement it is unreadable and
+untestable. The input is one page of contracts.
+
+`api/tests/test_flags.py` is the only thing watching any of this. The rules used
+to live in a router, where nothing could reach them without a server and a
+loaded database, so nothing tested them at all; every one is a claim about
+somebody's contract, which is the last place to find a boundary is off by one.
 
 ## Data
 
@@ -558,10 +606,18 @@ the amount and the unit separately; the unit goes in a `.unit` span (Archivo
   without the new keys renders as zeros and empty sections. Every API request
   carries the SvelteKit build id so a new bundle never reads an old one's cache.
   The same cache is why the API must ship keys and not prose.
-- `create_all` creates missing *tables*, not missing *columns*. Adding a field
-  to an existing model needs the table dropped (fine for the profile cache) or
-  a real migration. The `migrate` one-shot in the prod stack runs `create_all`
-  on every deploy and will not save you here.
+- **`create_all` creates missing *tables*, not missing *columns*.** On its own
+  it silently ignores a table that exists but has drifted, which is how `status`
+  and `county` reached production as columns the ORM had and Postgres did not,
+  500ing every request that read them. `Database.create_all` now follows it with
+  `add_missing_columns`, so the `migrate` one-shot the prod stack already runs
+  ahead of the API brings columns up too, and there is no server to log into.
+  It is **additive only** and refuses anything else by name: a NOT NULL column
+  with no default has nothing to put in the existing rows, and a primary key
+  cannot be introduced after the fact. A rename, a type change or a drop is
+  still a real migration, and that is the point at which this gets swapped for
+  Alembic. `core/tests/test_schema_sync.py` tests the decision without a
+  database; the ALTER itself is two lines around it.
 - `server_tokens off` hides the nginx *version*, but stock nginx cannot drop the
   `Server` header itself; that needs `headers_more`. In production Cloudflare
   replaces it with its own on the way out, so it never reaches a reader.
@@ -637,9 +693,14 @@ docker compose run --rm --entrypoint python api -m contratos_api.backfill
 Then <http://localhost:8080>. CLI commands are
 `schema, impic, entities, mandatos, delta, all, nifs`.
 
-A `__main__` test runner belongs at the **bottom** of its file: it iterates
-`globals()` at the moment it executes, so a test added below it never runs and
-never reports that it did not.
+**pytest, and nothing but pytest.** No fixtures, no plugins, no conftest beyond
+the three lines that set a `DATABASE_URL` nothing connects to: every test here
+is a plain function full of bare asserts, which is what pytest collects anyway.
+It replaced a hand-rolled `__main__` runner per file that iterated `globals()`,
+so a test written below the runner never ran and never said it had not. The
+suite needs no database and no container, so it runs on a venv in about a
+second; `pytest.ini` holds the paths so a bare `pytest` finds all three
+packages and does not go walking into `web/node_modules`.
 
 `api/tests/test_router_calls.py` binds every `repo.x(...)` call in a router
 against that method's real signature, with no database and no server. Nothing
@@ -656,14 +717,8 @@ types stay right when that happens, so only this catches it.
 Tests:
 
 ```bash
-python ingest/tests/test_parsers.py
-docker compose run --rm --entrypoint python api /app/tests/test_newcomer.py
-docker compose run --rm --entrypoint python api /app/tests/test_scoring_keys.py
-docker compose run --rm --entrypoint python api /app/tests/test_router_calls.py
-docker compose run --rm --entrypoint python api /app/tests/test_company_parsers.py
-docker compose run --rm --entrypoint python api /app/tests/test_legal_form.py
-docker compose --profile tools run --rm --entrypoint python ingest \
-  /app/tests/core/test_settings.py
+pip install -e './core[test]' -e ./api -e ./ingest   # once, in a venv
+pytest                                               # all three packages
 cd web && npm run check        # svelte-check plus the message parity check
 ```
 
@@ -671,7 +726,10 @@ cd web && npm run check        # svelte-check plus the message parity check
 job needs it**: `tests` is a `workflow_call` job that `build-and-push` depends
 on, so nothing reaches GHCR or the VPS from a red suite. The Python half needs
 no database, only a syntactically valid `DATABASE_URL`, because `Settings`
-demands one and nothing in the suite connects. It has no `push: main` trigger
+demands one and nothing in the suite connects; the root `conftest.py` supplies
+it, so CI and a laptop run the identical command. The runtime images no longer
+carry `/app/tests`: the suite runs on a venv, and an image with no pytest in it
+could not have run them anyway. It has no `push: main` trigger
 of its own; the deploy already carries it on main, and a second copy would just
 run the same minute twice.
 

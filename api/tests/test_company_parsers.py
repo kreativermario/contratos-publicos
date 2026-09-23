@@ -1,7 +1,7 @@
-"""The two registry parsers, offline. No network in a test."""
-import sys
+"""The registry parsers, offline. No network in a test."""
 
-from contratos_api.services.company import parse_aggregator, parse_sicae
+from contratos_api.services.company import (parse_aggregator, parse_nifpt,
+                                            parse_sicae)
 
 SICAE_PAGE = '''
 <input name="ctl00$MainContent$ipFirma" type="text" id="ctl00_MainContent_ipFirma"
@@ -51,10 +51,49 @@ def test_aggregator_rejects_an_empty_answer():
     assert parse_aggregator({"data": {"nif": "500000000", "cae_codes": []}}) is None
 
 
-if __name__ == "__main__":
-    for name, fn in sorted(globals().items()):
-        if name.startswith("test_"):
-            fn()
-            print("ok", name)
-    print("all passed")
-    sys.exit(0)
+NIFPT_OK = {
+    "result": "success",
+    "records": {"509442013": {
+        "nif": 509442013,
+        "title": "Nexperience Lda",
+        "address": "Rua da Lionesa 446",
+        "activity": "Desenvolvimento de software",
+        "status": "active",
+        "cae": "62010",
+        "contacts": {"email": "info@nex.pt", "phone": "220198228"},
+        "structure": {"capital": "5000.00"},
+        "geo": {"region": "Porto", "county": "Matosinhos"},
+    }},
+}
+
+
+def test_nifpt_reads_the_record_under_its_nif_key():
+    out = parse_nifpt(NIFPT_OK)
+    assert out["name"] == "Nexperience Lda"
+    assert out["status"] == "active"
+    assert out["county"] == "Matosinhos"
+    assert out["cae"] == [{"code": "62010",
+                           "description": "Desenvolvimento de software",
+                           "type": "principal"}]
+
+
+def test_nifpt_drops_contacts_and_capital():
+    """A phone number belongs to somebody and this site has no use for it."""
+    out = parse_nifpt(NIFPT_OK)
+    assert "contacts" not in out and "capital" not in out
+    assert not any("@" in str(v) for v in out.values())
+
+
+def test_nifpt_rejects_a_miss():
+    assert parse_nifpt({}) is None
+    assert parse_nifpt({"result": "error", "records": []}) is None
+    # success with an empty record is still a miss, not a company with no name
+    assert parse_nifpt({"result": "success", "records": {}}) is None
+    assert parse_nifpt({"result": "success", "records": {"1": {"nif": 1}}}) is None
+
+
+def test_nifpt_survives_a_record_with_no_cae():
+    payload = {"result": "success",
+               "records": {"5": {"title": "Sem CAE Lda", "geo": {}}}}
+    out = parse_nifpt(payload)
+    assert out["cae"] == [] and out["county"] is None

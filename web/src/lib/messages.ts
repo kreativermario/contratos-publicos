@@ -642,16 +642,38 @@ const PT: Record<string, string> = {
 	'tbl.nothingHere': 'Sem contratos para mostrar aqui.',
 
 	/* ---- flags on a contract row ------------------------------------------ */
-	'flag.limite': 'no limite',
+	/* The chip states the fact, with its numbers, because a reader should never
+	   have to hover to find out what a word means. The tooltip is where the
+	   caveat lives, never the meaning. Nothing here accuses anybody: every one
+	   of these patterns is perfectly legal. */
+	'flag.fatias': '{n} contratos, todos abaixo de {limit}',
+	'flag.fatias.why':
+		'Vários contratos seguidos à mesma empresa, para o mesmo tipo de trabalho, cada um por baixo de um limite legal que o conjunto ultrapassa. Cada contrato é legal por si. É o conjunto que se mostra.',
+	'flag.limite': 'a {gap} do limite de {limit}',
 	'flag.limite.why':
 		'O valor fica mesmo por baixo de um limite legal. Um euro acima e obrigaria a um procedimento mais exigente.',
 	'flag.limite.here': 'Aqui o limite é {limit}.',
-	'flag.pessoa': 'pessoa',
+	'flag.pessoa': 'uma pessoa, {value}',
 	'flag.pessoa.why':
 		'O nome não indica forma jurídica, e por lei uma empresa portuguesa tem de a indicar. É uma pessoa a receber diretamente, o que é legal e comum, mas raro neste valor.',
-	'flag.sozinho': 'sem ninguém contra',
+	'flag.estreante': 'primeiro contrato público há {months} meses',
+	'flag.estreante.why':
+		'Contamos desde o primeiro contrato público que esta empresa tem em todo o registo, não desde a data de constituição: essa não existe em nenhuma fonte gratuita. A empresa pode ser bem mais antiga do que isto.',
+	'flag.nunca_a_concurso': '{n} contratos aqui, nenhum a concurso',
+	'flag.nunca_a_concurso.why':
+		'Todos os contratos que esta empresa tem com esta câmara vieram por ajuste direto, ou de um concurso onde foi a única a aparecer.',
+	'flag.sozinho': 'concurso com uma só empresa',
 	'flag.sozinho.why':
 		'Houve concurso e apareceu uma única empresa. Não se aplica ao ajuste direto, onde a lei não pede concorrência.',
+	'flag.fechada': 'empresa já não está ativa',
+	'flag.fechada.why':
+		'O registo comercial não dá a empresa como ativa hoje. Diz respeito a hoje e não à data do contrato: a empresa podia estar ativa quando o contrato foi assinado.',
+	'flag.unipessoal': 'empresa de uma pessoa, {value}',
+	'flag.unipessoal.why':
+		'Uma sociedade unipessoal tem um único sócio. É legal e comum, e a forma jurídica lê-se do nome, que por lei tem de a indicar.',
+	'flag.sem_explicacao': 'ajuste direto sem justificação',
+	'flag.sem_explicacao.why':
+		'O contrato dispensou concorrência e o campo da fundamentação vem vazio no registo. O campo pode estar vazio por falha de preenchimento.',
 
 	/* ---- charts ------------------------------------------------------------ */
 	'chart.default': 'gráfico',
@@ -1291,16 +1313,34 @@ const EN: Record<string, string> = {
 	'tbl.nothingHere': 'No contracts to show here.',
 
 	/* ---- flags on a contract row ------------------------------------------ */
-	'flag.limite': 'at the ceiling',
+	'flag.fatias': '{n} contracts, all under {limit}',
+	'flag.fatias.why':
+		'Several contracts in a row to the same firm, for the same kind of work, each one under a statutory ceiling that the run as a whole clears. Every contract is lawful on its own. It is the run that is being shown.',
+	'flag.limite': '{gap} under the {limit} ceiling',
 	'flag.limite.why':
 		'The value sits just under a statutory ceiling. One euro more and it would require a more demanding procedure.',
 	'flag.limite.here': 'Here the ceiling is {limit}.',
-	'flag.pessoa': 'person',
+	'flag.pessoa': 'one person, {value}',
 	'flag.pessoa.why':
 		'The name carries no legal form, and by law a Portuguese company has to carry one. This is a person being paid directly, which is lawful and common, but rare at this amount.',
-	'flag.sozinho': 'nobody against them',
+	'flag.estreante': 'first public contract {months} months ago',
+	'flag.estreante.why':
+		'Counted from this firm\u2019s first public contract anywhere in the record, not from the date it was incorporated: no free source publishes that. The company may be considerably older than this.',
+	'flag.nunca_a_concurso': '{n} contracts here, none put to tender',
+	'flag.nunca_a_concurso.why':
+		'Every contract this firm holds with this council came by direct award, or from a tender it was the only one to enter.',
+	'flag.sozinho': 'tender with a single firm',
 	'flag.sozinho.why':
 		'There was a tender and a single company turned up. It does not apply to direct awards, where the law asks for no competition.',
+	'flag.fechada': 'company no longer active',
+	'flag.fechada.why':
+		'The commercial register does not list the company as active today. This is about today and not about the contract date: the company may well have been active when it was signed.',
+	'flag.unipessoal': 'one-member company, {value}',
+	'flag.unipessoal.why':
+		'A sociedade unipessoal has a single member. It is lawful and common, and the legal form is read off the name, which by law has to carry it.',
+	'flag.sem_explicacao': 'direct award, no justification',
+	'flag.sem_explicacao.why':
+		'The contract skipped competition and the justification field is empty in the register. The field may be empty because nobody filled it in.',
 
 	/* ---- charts ------------------------------------------------------------ */
 	'chart.default': 'chart',

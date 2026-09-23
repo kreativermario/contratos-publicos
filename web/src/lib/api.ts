@@ -218,14 +218,23 @@ export type Rival = {
 	tenders: number;
 };
 
+/** One flag on a contract: the key names the sentence, the data fills it in. */
+export type ContractFlag = { key: string; data?: Record<string, number | string> };
+
 export type ContractRow = {
 	id: number; object: string | null; procedure: string | null; value: number | null;
 	signed_date: string | null; year: number | null; cpv_desc: string | null;
 	n_bidders: number | null; ad_justification: string | null; suppliers: string[];
 	/** the same firms with their NIFs, so a row can link to a company page */
 	parties?: { name: string; nif: string | null }[];
-	/** patterns worth a second look, by key; every one of them is legal */
-	flags?: string[];
+	/**
+	 * Patterns worth a second look; every one of them is legal.
+	 *
+	 * `key` picks the sentence out of the message bundle and `data` fills its
+	 * `{placeholders}`, so the API still ships no prose while the chip can say
+	 * "3 contratos, todos abaixo de 20 000 €" instead of naming a category.
+	 */
+	flags?: ContractFlag[];
 	/** statutory ceiling this contract sits just under, if any */
 	near_limit?: number | null;
 	/** only set when read from a supplier's side, where the counterparty is the câmara */

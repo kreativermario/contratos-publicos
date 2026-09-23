@@ -81,6 +81,17 @@ class Settings(BaseSettings):
     # paid directly starts to look worth a second look at.
     person_flag_min: float = Field(25_000, alias="PERSON_FLAG_MIN")
 
+    # ---- contract flags (services/flags.py)
+    # A run of awards to one firm for one kind of work, each under a ceiling the
+    # run as a whole clears. Three is the smallest number that reads as a
+    # pattern rather than a coincidence; the window is a working year, because
+    # the ceilings the CCP sets are themselves reckoned per year.
+    slice_min_contracts: int = Field(3, alias="SLICE_MIN_CONTRACTS")
+    slice_window_days: int = Field(365, alias="SLICE_WINDOW_DAYS")
+    # How many contracts a firm must hold with one câmara before "not one of
+    # them went to tender" is worth saying. Below this it is a small sample.
+    never_tendered_min: int = Field(5, alias="NEVER_TENDERED_MIN")
+
     # ---- company registry lookup (off by default: it calls out to the internet)
     company_lookup_enabled: bool = Field(False, alias="COMPANY_LOOKUP_ENABLED")
     company_api_base: str = Field("https://api.ptdata.org/v1", alias="COMPANY_API_BASE")
@@ -91,6 +102,18 @@ class Settings(BaseSettings):
     company_founded_base: str = Field("https://empresadb.pt", alias="COMPANY_FOUNDED_BASE")
     company_timeout: float = Field(6.0, alias="COMPANY_TIMEOUT")
     company_cache_days: int = Field(30, alias="COMPANY_CACHE_DAYS")
+
+    # nif.pt carries two things no other free source does: whether the firm is
+    # still active, and the concelho it is registered in. It is also the only
+    # one behind a quota (1/min, 100/day, 1000/month on the free key), so it is
+    # never called from a public request: only the backfill one-shot may, and
+    # it paces itself. Empty key disables it everywhere.
+    company_nifpt_key: str = Field("", alias="COMPANY_NIFPT_KEY")
+    company_nifpt_base: str = Field("https://www.nif.pt", alias="COMPANY_NIFPT_BASE")
+    # one request a minute is the published ceiling; the extra second is slack
+    company_nifpt_interval: float = Field(61.0, alias="COMPANY_NIFPT_INTERVAL")
+    # under the 100/day cap, so a nightly run can never trip it
+    company_nifpt_daily: int = Field(90, alias="COMPANY_NIFPT_DAILY")
 
     @field_validator("database_url", mode="after")
     @classmethod

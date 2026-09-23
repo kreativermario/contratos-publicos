@@ -75,13 +75,3 @@ def test_every_router_call_fits_its_repository_method():
 def _calls_all():
     for path in sorted(ROUTERS.glob("*.py")):
         yield from _calls(path)
-
-
-if __name__ == "__main__":
-    # Defined at the bottom on purpose: it runs whatever is in globals() at the
-    # time, so a test added after it would silently never run.
-    for name, fn in sorted(globals().items()):
-        if name.startswith("test_"):
-            fn()
-            print("ok", name)
-    print("all passed")

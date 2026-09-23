@@ -51,11 +51,3 @@ def test_database_url_gets_psycopg3_driver():
 def test_thresholds_are_tunable():
     s = build(AD_LIMIT_SERVICES="25000", CONSULTA_PREVIA_LIMIT="80000")
     assert s.thresholds == (25000.0, 30000.0, 80000.0)
-
-
-if __name__ == "__main__":
-    for name, fn in sorted(globals().items()):
-        if name.startswith("test_"):
-            fn()
-            print("ok", name)
-    print("all passed")

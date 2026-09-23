@@ -5,57 +5,80 @@
 	/**
 	 * Patterns worth a second look on one contract.
 	 *
-	 * Every one of them is legal, and the label says what it is rather than
-	 * passing judgement. The colour never carries the meaning on its own: the
-	 * word is always there, and the title explains it in a sentence.
+	 * Every one of them is legal, and the chip states the fact with its numbers
+	 * rather than naming a category: "3 contratos, todos abaixo de 20 000 €"
+	 * needs no glossary, where "fracionamento" needs a tooltip and a law degree.
+	 * The tooltip carries the caveat, never the meaning.
+	 *
+	 * The colour never carries meaning on its own: the sentence is always there.
 	 */
-	let { flags = [], nearLimit = null, value = null }: {
-		flags?: string[];
-		nearLimit?: number | null;
-		value?: number | null;
-	} = $props();
+	type Flag = { key: string; data?: Record<string, number | string> };
 
-	// The keys the API sends. Words and reasons come from the message bundle, so
-	// the same flag reads in whichever language the page is in.
+	let { flags = [], max = 3 }: { flags?: Flag[]; max?: number } = $props();
+
+	// Keys whose value is money. The API ships numbers, not strings, because a
+	// formatted euro amount is prose and prose does not go on the wire.
+	const MONEY = new Set(['limit', 'gap', 'value']);
+
 	const TONES: Record<string, string> = {
+		fatias: 'critical',
 		limite: 'serious',
 		pessoa: 'person',
-		sozinho: 'warn'
+		estreante: 'warn',
+		nunca_a_concurso: 'serious',
+		sozinho: 'warn',
+		fechada: 'critical',
+		unipessoal: 'person',
+		sem_explicacao: 'warn'
 	};
 
-	const shown = $derived(
-		flags.filter((f) => f in TONES).map((f) => ({ key: f, tone: TONES[f], label: t(`flag.${f}`) }))
-	);
+	const vars = (data: Record<string, number | string> = {}) =>
+		Object.fromEntries(
+			Object.entries(data).map(([k, v]) => [
+				k,
+				MONEY.has(k) && typeof v === 'number' ? eur(v) : v
+			])
+		);
 
-	const title = (key: string) =>
-		key === 'limite' && nearLimit
-			? `${t('flag.limite.why')} ${t('flag.limite.here', { limit: eur(nearLimit) })}`
-			: t(`flag.${key}.why`);
+	// A row wearing seven chips teaches nobody anything except to stop reading
+	// chips. The service already orders them by what matters most.
+	const shown = $derived(
+		flags
+			.filter((f) => f.key in TONES)
+			.slice(0, max)
+			.map((f) => ({
+				key: f.key,
+				tone: TONES[f.key],
+				label: t(`flag.${f.key}`, vars(f.data)),
+				why: t(`flag.${f.key}.why`)
+			}))
+	);
 </script>
 
 {#if shown.length}
 	<span class="flags">
 		{#each shown as f (f.key)}
-			<span class="flag" data-tone={f.tone} title={title(f.key)}>{f.label}</span>
+			<span class="flag" data-tone={f.tone} title={f.why}>{f.label}</span>
 		{/each}
 	</span>
 {/if}
 
 <style>
-	.flags { display: inline-flex; flex-wrap: wrap; gap: .25rem; margin-top: .25rem; }
-	/* Filled, not outlined: at this size an outlined pill in a dark hue is a
-	   grey smudge on cream. The word carries the meaning; the fill only makes
-	   it findable while scanning a long table. */
+	.flags { display: flex; flex-wrap: wrap; gap: .3rem; margin-top: .35rem; }
+	/* Archivo, not the display face: these carry a sentence now, and Bowlby One
+	   set small and uppercase was legible as one word and a smudge as six.
+	   Filled rather than outlined, because an outlined pill in a dark hue at
+	   this size is a grey smudge on cream. */
 	.flag {
 		display: inline-flex; align-items: center;
-		font-family: 'Bowlby One', Impact, sans-serif; font-weight: 400;
-		font-size: .6rem; letter-spacing: .02em; text-transform: uppercase;
-		line-height: 1; white-space: nowrap; cursor: help;
-		padding: .26rem .45rem .2rem; border-radius: 4px;
+		font-weight: 700; font-size: .7rem; line-height: 1.25;
+		padding: .22rem .45rem; border-radius: 4px; cursor: help;
 		border: 1.5px solid var(--ink); box-shadow: 1.5px 1.5px 0 var(--ink);
 		color: var(--paper);
 	}
-	.flag[data-tone='serious'] { background: var(--sev-serious); }
-	.flag[data-tone='warn']    { background: var(--amarelo); color: var(--ink); }
-	.flag[data-tone='person']  { background: #7a2fa0; }
+	.flag[data-tone='critical'] { background: var(--sev-critical); }
+	.flag[data-tone='serious']  { background: var(--sev-serious); }
+	/* Festival yellow cannot hold white; this is the project's own warn amber. */
+	.flag[data-tone='warn']     { background: var(--sev-warn); }
+	.flag[data-tone='person']   { background: #7a2fa0; }
 </style>

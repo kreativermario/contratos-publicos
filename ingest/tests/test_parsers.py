@@ -63,11 +63,3 @@ def test_stream_json_array():
     assert len(got) == 500, len(got)
     assert got[0]["idcontrato"] == "0" and got[-1]["n"] == 499
     assert list(stream_json_array(io.StringIO("[]"))) == []
-
-
-if __name__ == "__main__":
-    for name, fn in sorted(globals().items()):
-        if name.startswith("test_"):
-            fn()
-            print("ok", name)
-    print("all passed")
