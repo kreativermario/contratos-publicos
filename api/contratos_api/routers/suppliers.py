@@ -12,7 +12,7 @@ from contratos_core import Settings
 from ..deps import get_repo, get_settings_dep
 from ..repositories import MunicipalityRepository
 from ..schemas import ContractOut, SupplierDetail
-from .municipalities import _flags, _near_limit
+from .municipalities import decorate
 
 router = APIRouter(prefix="/suppliers", tags=["suppliers"])
 
@@ -36,7 +36,4 @@ def supplier_contracts(nif: str, limit: int = Query(50, le=500), offset: int = 0
     won lately."""
     rows = repo.supplier_contracts(nif, limit, offset, q=q, year=year, buyer=buyer,
                                    procedure=procedure, sort=sort, desc=desc)
-    for row in rows:
-        row["near_limit"] = _near_limit(row.get("value"), settings)
-        row["flags"] = _flags(row, settings)
-    return rows
+    return decorate(rows, settings, repo)

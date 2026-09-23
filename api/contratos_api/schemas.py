@@ -214,6 +214,11 @@ class Company(BaseModel):
     # False means the year is only a bound: the company predates the register
     founded_exact: bool = False
     legal_form: str | None = None
+    #: "active" / "inactive" as the register has it. A key, not prose: the
+    #: wording lives in messages.ts like every other reader-facing string.
+    status: str | None = None
+    #: concelho the firm is registered in, the only answer to local or outsider
+    county: str | None = None
     source: str | None = None
 
 
@@ -228,6 +233,18 @@ class Rival(BaseModel):
 class ContractParty(BaseModel):
     name: str
     nif: str | None
+
+
+class ContractFlag(BaseModel):
+    """One pattern, plus the numbers its sentence needs.
+
+    Still no prose on the wire: `key` picks the sentence out of `messages.ts`
+    and `data` fills its `{placeholders}`. The numbers travel because a chip
+    reading "3 contratos, todos abaixo de 20 000 EUR" needs no glossary, where
+    a chip reading "fracionamento" needs a tooltip and a law degree.
+    """
+    key: str
+    data: dict[str, float | int | str] = {}
 
 
 class ContractOut(BaseModel):
@@ -248,8 +265,8 @@ class ContractOut(BaseModel):
     suppliers: list[str]
     #: the same firms with their NIFs, so a row can link to a company page
     parties: list[ContractParty] = []
-    #: patterns worth a second look, by key; every one of them is legal
-    flags: list[str] = []
+    #: patterns worth a second look; every one of them is legal
+    flags: list[ContractFlag] = []
     # only filled when the row is read from a supplier's side, where the other
     # party is the câmara
     buyer_nif: str | None = None

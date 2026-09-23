@@ -9,75 +9,27 @@ from ..deps import get_repo, get_scoring, get_settings_dep
 from ..repositories import MunicipalityRepository
 from ..schemas import (ContractOut, MandateOut, MapCell, Municipality, Rival,
                        Score, Stats, Supplier)
-from ..services.company import is_person_nif, looks_like_person_name
+from ..services.flags import flags_for, near_limit
 from ..services.scoring import ScoringService
 
 router = APIRouter(prefix="/municipalities", tags=["municipalities"])
 
 
-def _near_limit(value, settings: Settings) -> float | None:
-    """The statutory ceiling this contract sits just under, if any.
+def decorate(rows: list[dict], settings: Settings,
+             repo: MunicipalityRepository, nif: str | None = None) -> list[dict]:
+    """Attach the ceiling and the flags to a page of contracts.
 
-    Same rule the threshold_surf indicator uses municipality-wide, applied to one
-    row so the reader can see which contract it was talking about. Nothing here
-    is an accusation: landing under a ceiling is legal and often unremarkable.
-    It is only worth a second look when it keeps happening.
+    One context for the whole page, not one per row: the flags that need to
+    know about a supplier across contracts would otherwise run four queries per
+    row. The rules themselves live in `services/flags.py`, where they can be
+    tested without a router, a database or a request.
     """
-    if value is None:
-        return None
-    band = settings.threshold_surf_band
-    for limit in settings.thresholds:
-        if limit * (1 - band) <= float(value) <= limit:
-            return limit
-    return None
-
-
-def _is_person(party: dict) -> bool:
-    """A natural person behind a contract.
-
-    Two routes, because the record only ever offers one of them. A published
-    NIF settles it outright, but IMPIC omits the NIF of a natural person, so
-    every one that reaches us starts with a 5 or a 9. In practice the signal is
-    a *missing* NIF plus a name that reads as a name.
-    """
-    nif = party.get("nif")
-    if nif:
-        return is_person_nif(nif)
-    return looks_like_person_name(party.get("name"))
-
-
-def _flags(row: dict, settings: Settings) -> list[str]:
-    """Patterns worth a second look on a single contract row.
-
-    Every one of these is legal. They are shapes that recur in the record, not
-    findings: the interface names each one in words and says what it means, and
-    a row can carry none, one or several.
-    """
-    found: list[str] = []
-
-    if row.get("near_limit"):
-        found.append("limite")
-
-    # A natural person, read off the NIF, which is what the tax register keys
-    # it on: 1 to 3 and 45 are people, 5 is a company, 6 a public body. The
-    # first version read the *name* for the absence of a legal form and called
-    # "TECNORÉM - Engenharia e Construções, S.A" a person, because "S.A"
-    # without the trailing dot was missing from the table.
-    #
-    # One person invoicing a câmara is legal and routine at small values, so the
-    # amount is what makes it worth pointing at.
-    value = float(row.get("value") or 0)
-    parties = row.get("parties") or []
-    if value >= settings.person_flag_min and any(_is_person(p) for p in parties):
-        found.append("pessoa")
-
-    # A tender nobody else entered. Not ajuste direto: there the law does not ask
-    # for competition, so a single name says nothing.
-    procedure = (row.get("procedure") or "").lower()
-    if row.get("n_bidders") == 1 and "ajuste direto" not in procedure:
-        found.append("sozinho")
-
-    return found
+    ctx = repo.flag_context(rows, settings, nif)
+    for row in rows:
+        row["suppliers"] = row.get("suppliers") or []
+        row["near_limit"] = near_limit(row.get("value"), settings)
+        row["flags"] = flags_for(row, settings, ctx)
+    return rows
 
 
 def resolve_nif(nif: str, settings: Settings) -> str:
@@ -181,8 +133,4 @@ def contracts(nif: str, q: str | None = None, procedure: str | None = None,
                           year_from=year_from, year_to=year_to,
                           date_from=date_from, date_to=date_to,
                           limit=limit, offset=offset)
-    for row in rows:
-        row["suppliers"] = row.get("suppliers") or []
-        row["near_limit"] = _near_limit(row.get("value"), settings)
-        row["flags"] = _flags(row, settings)
-    return rows
+    return decorate(rows, settings, repo, nif)

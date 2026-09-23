@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from ..deps import get_repo, get_settings_dep
 from ..repositories import MunicipalityRepository
 from ..schemas import ContractDetail
-from .municipalities import _near_limit
+from ..services.flags import near_limit
 
 router = APIRouter(prefix="/contracts", tags=["contracts"])
 
@@ -19,5 +19,5 @@ def contract(contract_id: int,
     found = repo.contract(contract_id)
     if not found:
         raise HTTPException(404, f"no contract {contract_id}")
-    found["near_limit"] = _near_limit(found.get("value"), settings)
+    found["near_limit"] = near_limit(found.get("value"), settings)
     return found
