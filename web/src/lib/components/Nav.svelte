@@ -2,6 +2,7 @@
 	import { afterNavigate, goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import type { Municipality } from '$lib/api';
+	import { byShortName, shortMunicipality } from '$lib/format';
 	import { L, lang, swap, t } from '$lib/messages';
 
 	let { municipalities = [], current, onpick }: {
@@ -9,6 +10,13 @@
 		current?: Municipality | null;
 		onpick?: (nif: string) => void;
 	} = $props();
+
+	// Alphabetical, by the short name. The API hands the list over by value
+	// descending, which is the right order for a ranking and the wrong one for
+	// finding "Odivelas" among 308. Short names also make the browser's own
+	// type-ahead work: every full name starts "Município de", so typing in the
+	// select matched everything and narrowed nothing.
+	const sorted = $derived([...municipalities].sort(byShortName));
 
 	let open = $state(false);
 
@@ -61,12 +69,12 @@
 		</button>
 
 		<nav id="navmenu" class:open aria-label={t('nav.main')}>
-			{#if municipalities.length > 1}
+			{#if sorted.length > 1}
 				<label class="picker">
 					<span class="sr">{t('nav.municipality')}</span>
 					<select value={current?.nif} onchange={(e) => onpick?.(e.currentTarget.value)}>
-						{#each municipalities as m (m.nif)}
-							<option value={m.nif}>{m.name}</option>
+						{#each sorted as m (m.nif)}
+							<option value={m.nif}>{shortMunicipality(m.name ?? '') || m.nif}</option>
 						{/each}
 					</select>
 				</label>

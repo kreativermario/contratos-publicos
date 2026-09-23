@@ -70,6 +70,7 @@ const PT: Record<string, string> = {
 
 	/* ---- navigation ---------------------------------------------------- */
 	'nav.menu': 'Menu',
+	'nav.loading': 'A carregar a página',
 	'nav.closeMenu': 'Fechar o menu',
 	'nav.main': 'Principal',
 	'nav.municipality': 'Município',
@@ -229,6 +230,11 @@ const PT: Record<string, string> = {
 	'muni.noDataBody':
 		'Não há contratos carregados para este município. Volta mais tarde, os dados são atualizados a partir do registo público de contratos.',
 	'muni.fallbackName': 'Município',
+	// Leads with the phrase a resident actually types. The brand goes last:
+	// "Odivelas · Onde Vai Parar" put the one word nobody searches for first.
+	// Read by the page AND by scripts/prerender.mjs, which writes it into the
+	// static file a crawler receives before any JavaScript runs.
+	'muni.metaTitle': 'Contratos públicos de {name} | Onde Vai Parar',
 	'muni.metaDescription':
 		'Contratos públicos de {name}: quem recebe o dinheiro, quanto foi por ajuste direto e que empresas ganham mais.',
 	'muni.tab.overview': 'Visão geral',
@@ -719,6 +725,7 @@ const EN: Record<string, string> = {
 
 	/* ---- navigation ---------------------------------------------------- */
 	'nav.menu': 'Menu',
+	'nav.loading': 'Loading the page',
 	'nav.closeMenu': 'Close the menu',
 	'nav.main': 'Main',
 	'nav.municipality': 'Council',
@@ -879,6 +886,7 @@ const EN: Record<string, string> = {
 	'muni.noDataBody':
 		'No contracts are loaded for this council. Come back later: the data is refreshed from the public contract register.',
 	'muni.fallbackName': 'Council',
+	'muni.metaTitle': 'Public contracts in {name} | Onde Vai Parar',
 	'muni.metaDescription':
 		'Public contracts in {name}: who gets the money, how much skipped a tender and which firms win most.',
 	'muni.tab.overview': 'Overview',

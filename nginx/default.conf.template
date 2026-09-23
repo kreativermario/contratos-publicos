@@ -14,6 +14,24 @@
 limit_req_zone $binary_remote_addr zone=api_rl:10m rate=${NGINX_API_RATE};
 limit_conn_zone $binary_remote_addr zone=api_conn:10m;
 
+# The company profile is the one endpoint with an outbound cost: on a cache miss
+# it fetches sicae.pt and empresadb.pt synchronously. Every other route is a
+# local database read. Left on the general limit, somebody walking NIFs does not
+# steal anything (the contract register is open data and the bulk file is faster
+# than this API), they make US hammer a public register from our address, on a
+# worker thread, until that register bans us from a source the site depends on.
+#
+# A second zone rather than a second location, so the proxy block below is not
+# duplicated. An EMPTY key is not accounted by limit_req, which is what lets one
+# `limit_req` directive apply to one path prefix: every other URI maps to "" and
+# passes through untouched. The version segment is a wildcard on purpose, so a
+# /v2 alongside /v1 is still covered without editing this file.
+map $uri $company_rl_key {
+    default                  "";
+    ~^/api/[^/]+/companies/  $binary_remote_addr;
+}
+limit_req_zone $company_rl_key zone=api_companies:10m rate=${NGINX_COMPANY_RATE};
+
 # NGINX_TRUSTED_PROXY is the stack network subnet (STACK_SUBNET in the compose),
 # so the only address trusted to speak for a client is the tunnel itself.
 #
@@ -92,6 +110,9 @@ server {
     location /api/ {
         include /etc/nginx/security-headers.conf;
         limit_req  zone=api_rl burst=${NGINX_API_BURST} nodelay;
+        # Only bites on /api/*/companies/; see the map above. nginx applies
+        # whichever zone is the more restrictive for the request at hand.
+        limit_req  zone=api_companies burst=${NGINX_COMPANY_BURST} nodelay;
         limit_conn api_conn 20;
         limit_req_status 429;
 

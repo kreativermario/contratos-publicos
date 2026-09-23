@@ -222,8 +222,10 @@ services:
       # client IP believable. See NGINX_REAL_IP_HEADER.
       NGINX_TRUSTED_PROXY: ${NGINX_TRUSTED_PROXY:-10.89.7.0/24}
       NGINX_REAL_IP_HEADER: ${NGINX_REAL_IP_HEADER:-CF-Connecting-IP}
-      NGINX_API_RATE: ${NGINX_API_RATE:-20r/s}
-      NGINX_API_BURST: ${NGINX_API_BURST:-40}
+      NGINX_API_RATE: ${NGINX_API_RATE:-5r/s}
+      NGINX_API_BURST: ${NGINX_API_BURST:-20}
+      NGINX_COMPANY_RATE: ${NGINX_COMPANY_RATE:-30r/m}
+      NGINX_COMPANY_BURST: ${NGINX_COMPANY_BURST:-15}
     tmpfs:
       # tmpfs mounts default to root ownership; nginx runs as uid 101. See the
       # db service above for why these carry a mode and no owner.

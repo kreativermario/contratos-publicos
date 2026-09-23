@@ -108,7 +108,7 @@ jobs:
           # The canonical origin is compiled into the static files, so it is a
           # build argument. The default lives in the Dockerfile.
           build-args: |
-            PUBLIC_SITE_URL=${{ vars.PUBLIC_SITE_URL || 'https://ondevaiparar.com' }}
+            PUBLIC_SITE_URL=${{ vars.PUBLIC_SITE_URL || 'https://ondevaiparar.pt' }}
           push: true
           tags: ${{ steps.meta.outputs.web }}
           cache-from: type=gha,scope=web
@@ -214,6 +214,7 @@ jobs:
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           APIABERTA_KEY: ${{ secrets.APIABERTA_KEY }}
+          COMPANY_NIFPT_KEY: ${{ secrets.COMPANY_NIFPT_KEY }}
           CLOUDFLARE_TUNNEL_TOKEN: ${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}
           API_IMAGE:    ${{ needs.build-and-push.outputs.api }}
           WEB_IMAGE:    ${{ needs.build-and-push.outputs.web }}
@@ -223,7 +224,8 @@ jobs:
           umask 077
           # A .env line ends at the newline, so a value carrying one would
           # silently truncate and turn the rest into a bogus key. Refuse instead.
-          for k in POSTGRES_PASSWORD DATABASE_URL APIABERTA_KEY CLOUDFLARE_TUNNEL_TOKEN; do
+          for k in POSTGRES_PASSWORD DATABASE_URL APIABERTA_KEY COMPANY_NIFPT_KEY \
+                   CLOUDFLARE_TUNNEL_TOKEN; do
             case "${!k}" in
               *$'\n'*) echo "::error::$k contains a newline, which cannot go in a .env file"; exit 1 ;;
             esac
@@ -232,8 +234,8 @@ jobs:
             echo "# Written by .github/workflows/deploy.yml. Edits here are lost on"
             echo "# the next deploy; change the production environment instead."
             printf '%s\n' "$APP_ENV"
-            for k in POSTGRES_PASSWORD DATABASE_URL APIABERTA_KEY CLOUDFLARE_TUNNEL_TOKEN \
-                     API_IMAGE WEB_IMAGE INGEST_IMAGE; do
+            for k in POSTGRES_PASSWORD DATABASE_URL APIABERTA_KEY COMPANY_NIFPT_KEY \
+                     CLOUDFLARE_TUNNEL_TOKEN API_IMAGE WEB_IMAGE INGEST_IMAGE; do
               printf '%s=%s\n' "$k" "${!k}"
             done
           } > stack.env

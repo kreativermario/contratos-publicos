@@ -114,6 +114,29 @@ not strings, and would never notice.
 strips the types, so the check imports the module the site actually ships
 rather than a copy of its regex.
 
+`web/scripts/prerender.mjs` runs from `npm run build`, after `vite build`. It
+reads the municipality list from `PRERENDER_API` and writes one real HTML file
+per município per language tree, carrying the title, description, canonical,
+hreflang and JSON-LD a crawler needs before any JavaScript runs. It also owns
+`sitemap.xml`, because it is the only thing that knows which pages it wrote,
+and it asserts that every URL it lists exists on disk.
+
+nginx needs nothing for this: `try_files $uri $uri/ /index.html` already
+resolves `/municipio/506811570/` to that directory's `index.html`. Production
+is unchanged, the container stays read-only, and there is still no Node runtime
+on the box.
+
+Two rules it must keep. The API being unreachable writes the static-only
+sitemap, prints a warning and exits 0: a data source being down must not block
+a deploy, and a smaller sitemap must never ship in silence. And only
+slow-moving facts go in the prerendered head, never a euro total, because these
+files are regenerated on deploy and nothing else.
+
+It cannot import `messages.ts` or `format.ts`: both reach `$app/state`, which
+does not exist under plain node. It reads the message bundles as text, the way
+`check-messages.mjs` does, and `shortMunicipality` lives in `seo.ts` for this
+reason rather than in `format.ts` where it belongs by subject.
+
 **What is never translated:** contract descriptions, supplier names, buyer
 names, procedure names, council names and CPV labels. They are quoted verbatim
 from IMPIC and are rendered verbatim, in Portuguese, on both trees.
@@ -258,8 +281,31 @@ Limits that must stay visible in the UI:
   acts and the source those resellers resell, has a NIF search marked "critério
   preferencial" but answers every automated submission with **"Por favor, efetue
   a Validação"**, a human-validation challenge. Defeating it is both an
-  anti-automation circumvention and a terms breach. SICAE plus VIES is the
-  ceiling. Capital social and headcount stay out.
+  anti-automation circumvention and a terms breach. What is left is SICAE plus
+  VIES plus **nif.pt**, which has a documented API and issues a free key on
+  request. Headcount stays out; so does capital social, see below.
+- **nif.pt is the quota'd source and is never in the request path.** It is the
+  only free API carrying two things nothing else here does: whether the firm is
+  still `active`, and the concelho it is registered in, which is the only
+  answer this project has to "local firm or outsider" (the procurement data has
+  no supplier address at all). The free key allows 1 request a minute, 100 a
+  day, 1000 a month, so a public request must never reach it: it would either
+  block for a minute or spend the day's budget on whoever clicked first.
+  `CompanyLookup.allow_nifpt` is `False` everywhere except
+  `python -m contratos_api.backfill`, which paces itself at
+  `COMPANY_NIFPT_INTERVAL` and stops at `COMPANY_NIFPT_DAILY`. Empty key
+  disables it entirely.
+- **The backfill spends its quota on the suppliers the indices already point
+  at**, not alphabetically: uncontested money first, where "uncontested" is the
+  project's existing soft-win definition (an ajuste direto, or a tender the firm
+  was alone in) and not a new suspicion score invented for this. A NIF already
+  in `company_profiles` is skipped whether it was a hit or a miss, because the
+  miss is cached on purpose and re-asking a quota'd register for a NIF it has
+  already denied is the one thing that budget cannot afford.
+- **nif.pt publishes capital social, and we still drop it.** So do the contacts
+  it returns. Capital social nothing here scores from, and an email and a phone
+  number belong to somebody: storing them would make this a directory of people
+  rather than of contracts. Add capital only when a signal actually reads it.
 - **Do not scrape racius.com or contribuinte.pt.** Both forbid non-UI access
   and redistribution in their terms, and contribuinte.pt returns `0 EUR` of
   capital social for a company with 9.6M.
@@ -402,12 +448,47 @@ the amount and the unit separately; the unit goes in a `.unit` span (Archivo
   forge it, while `X-Forwarded-For` is *appended* to, and with
   `real_ip_recursive` a client that sends one can walk the limiter off any
   address it likes.
+- **The API is not worth protecting from scrapers; `/companies/` is.** The
+  contract register is IMPIC's open data and the bulk file is faster to download
+  than this API is to walk, so there is nothing there to steal, and AGPL plus an
+  auditable method is the whole argument the project rests on: an API people can
+  query is part of that, not a hole in it. `/api/*/companies/` is the exception.
+  On a cache miss it fetches `sicae.pt` and `empresadb.pt` **synchronously, on a
+  public unauthenticated request**, so somebody walking NIFs does not take our
+  data, they make us hammer a public register from our address until it bans us
+  from a source the site depends on. It carries its own `limit_req` zone,
+  `30r/m` against the general `5r/s`. That zone is a `map` on `$uri` rather than
+  a second `location`, because an **empty** key is not accounted by `limit_req`:
+  every other URI maps to `""` and passes through, so one directive in the
+  shared `/api/` block covers one path prefix without duplicating the proxy
+  config. The version segment in the pattern is a wildcard, so a `/v2` is
+  covered without editing nginx. `API_CORS_ORIGINS=*` defends nothing either
+  way: CORS is a browser rule and every scraper ignores it.
 - **One static shell cannot carry a canonical link.** `app.html` is served for
   every route, so a canonical baked there told the index that `/panorama`,
   every município and every empresa page were all the same URL as `/`. The
   canonical and the hreflang pair are per route, in `+layout.svelte`, from
   `seoUrls()`. The og tags stay in the shell: unfurlers never run JS, and one
   preview for the whole site is the deliberate trade.
+- **`build/index.html` is the fallback for every unresolved route**, which is
+  the rule `web/scripts/prerender.mjs` is built around. It gets the site-wide
+  `Organization` and `WebSite` graph and nothing else: no canonical, no route
+  title, because it answers for `/empresa/500123456` and `/contrato/99` too.
+  `build/en/index.html` is different and may be specific, because nginx resolves
+  `/en` to it via `$uri/` and falls back to the root shell for anything deeper.
+- **A `<button onclick>` is not a link, and that was the whole SEO problem.**
+  The município picker rendered each council as a button, so there was no path
+  a crawler could follow from the homepage to any `/municipio/<nif>`, and the
+  sitemap listed four static paths. Those pages did not exist as far as an index
+  was concerned. They are anchors now (`Landing.svelte`), which also buys
+  `data-sveltekit-preload-data="hover"` for free. The supplier and contract
+  tables were already anchors, so the crawl graph flows from there.
+- **The `.com` default outlived its fix.** `vite.config.ts` was corrected to
+  the `.pt`, and `docker/web.Dockerfile` and `deploy.yml` were not, so every
+  production build baked the redirecting domain into every canonical, the
+  sitemap and robots.txt. There is no `PUBLIC_SITE_URL` in the production
+  environment, so those defaults are what actually shipped. Three places carry
+  this default. Change one, check the other two.
 - The favicon is `static/favicon.svg`, the poster gauge, and
   `apple-touch-icon.png` is that same file rasterised at 180px. They were an
   emoji data URI and an unrelated red gauge; a browser tab and an iOS home
@@ -533,6 +614,10 @@ docker compose --profile tools run --rm ingest impic      # bulk history
 docker compose --profile tools run --rm ingest entities   # supplier countries
 docker compose --profile tools run --rm ingest mandatos   # autárquicas results
 docker compose --profile tools run --rm ingest delta      # apiaberta top-up
+
+# company profiles, quota'd: run it nightly, it paces itself and exits
+docker compose run --rm --entrypoint python api -m contratos_api.backfill --dry-run
+docker compose run --rm --entrypoint python api -m contratos_api.backfill
 ```
 
 Then <http://localhost:8080>. CLI commands are
