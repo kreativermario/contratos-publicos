@@ -90,9 +90,29 @@ def test_a_recent_debut_counts_from_the_first_contract_anywhere():
     signed = date(2024, 6, 1)
     ctx = FlagContext(debut={FIRM["nif"]: date(2024, 2, 1)},
                       dataset_start=date(2015, 1, 1))
-    flag = next(f for f in flags_for(row(signed_date=signed), S, ctx)
+    flag = next(f for f in flags_for(
+        row(signed_date=signed, procedure="Ajuste Direto"), S, ctx)
                 if f["key"] == "estreante")
     assert flag["data"]["months"] == 4
+
+
+def test_a_newcomer_that_won_an_open_tender_is_not_flagged():
+    """The condition CLAUDE.md names and the first version of this flag lost.
+    A new firm beating other bidders in an open tender is a new firm doing the
+    ordinary thing, and flagging it fired on eight of the first forty contracts
+    in Odivelas, every one an open concurso público."""
+    ctx = FlagContext(debut={FIRM["nif"]: date(2024, 2, 1)},
+                      dataset_start=date(2015, 1, 1))
+    assert "estreante" not in keys(flags_for(
+        row(procedure="Concurso público", n_bidders=None), S, ctx))
+    # undisclosed bidders is not the same as being alone: n_bidders is None for
+    # most of the record, and reading it as "alone" would flag the register
+    assert "estreante" not in keys(flags_for(
+        row(procedure="Concurso público", n_bidders=4), S, ctx))
+    # an ajuste direto, or a tender it was the only one to enter, does flag
+    assert "estreante" in keys(flags_for(row(procedure="Ajuste Direto"), S, ctx))
+    assert "estreante" in keys(flags_for(
+        row(procedure="Concurso público", n_bidders=1), S, ctx))
 
 
 def test_an_old_firm_is_not_a_newcomer():

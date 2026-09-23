@@ -247,6 +247,14 @@ Consequences worth keeping:
   which keys are money (`limit`, `gap`, `value`) and runs `eur()` at render. A
   formatted amount is prose and would print Portuguese euros on the English
   pages, and keep printing them for an hour, like any other cached string.
+- **`estreante` needs the win to be uncontested, not just the debut to be
+  recent.** This is condition (3) of the newcomer rule below, and leaving it out
+  is the mistake that rule already warns about. Without it the flag fired on
+  eight of the first forty contracts in Odivelas, every one an open concurso
+  público: a new firm beating other bidders is a new firm doing the ordinary
+  thing. Uncontested is the repository's own pair, an ajuste direto or a tender
+  it was alone in. Undisclosed bidders is **not** alone: `n_bidders` is None for
+  most of the record.
 - **`estreante` counts from the first public contract, not from incorporation.**
   No free source publishes a founding date, so the sentence reads "primeiro
   contrato público há {months} meses" and the tooltip says the firm may be much
