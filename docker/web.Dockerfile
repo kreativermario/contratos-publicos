@@ -7,7 +7,12 @@ COPY . ./
 # The canonical origin is compiled in: canonical, hreflang, og:* and the
 # generated sitemap/robots all carry it, and none of them can be rewritten at
 # runtime because the files are static.
-ARG PUBLIC_SITE_URL=https://ondevaiparar.com
+# The .pt, never the .com. The .com is registered and 301s to it at Cloudflare,
+# so building with it here bakes a redirecting domain into every canonical link,
+# the hreflang pair, the sitemap and robots.txt, which is the one thing a
+# canonical must never be. vite.config.ts was corrected for this and this file
+# was missed, so production has been shipping the .com.
+ARG PUBLIC_SITE_URL=https://ondevaiparar.pt
 ENV PUBLIC_SITE_URL=$PUBLIC_SITE_URL
 RUN npm run build
 

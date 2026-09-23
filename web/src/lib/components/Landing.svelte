@@ -7,7 +7,7 @@
 	import { narrow } from '$lib/narrow.svelte';
 	import { reveal } from '$lib/reveal';
 	import echarts from '$lib/echarts';
-	import { eurShortParts, num, shortMunicipality } from '$lib/format';
+	import { byShortName, eurShortParts, num, shortMunicipality } from '$lib/format';
 	import { L, t } from '$lib/messages';
 
 	let { municipalities = [] }: { municipalities?: Municipality[] } = $props();
@@ -60,7 +60,10 @@
 		const rows = term
 			? municipalities.filter((m) => fold(short(m)).includes(term))
 			: municipalities;
-		return [...rows].sort((a, b) => (b.total ?? 0) - (a.total ?? 0));
+		// Alphabetical, not by spend: this tab answers "como se chama", and a
+		// reader scanning for their own concelho needs the order their eye
+		// already assumes. The spend ranking lives on the panorama.
+		return [...rows].sort(byShortName);
 	});
 
 	/* ---- geometry: only the two tabs that need it pay for it ----------- */
@@ -237,10 +240,10 @@
 				{#if found.length}
 					<ul class="grid">
 						{#each found as m (m.nif)}
-							<li><button type="button" class="mcard lift" onclick={() => open(m.nif)}>
+							<li><a class="mcard lift" href={L(`/municipio/${encodeURIComponent(m.nif)}`)}>
 								<b>{short(m)}</b>
 								<span>{num(m.contracts)} {t('common.contracts')}</span>
-							</button></li>
+							</a></li>
 						{/each}
 					</ul>
 				{:else}
@@ -266,10 +269,10 @@
 					{#if district}
 						<ul class="grid">
 							{#each inDistrict as m (m.nif)}
-								<li><button type="button" class="mcard lift" onclick={() => open(m.nif)}>
+								<li><a class="mcard lift" href={L(`/municipio/${encodeURIComponent(m.nif)}`)}>
 									<b>{short(m)}</b>
 									<span>{num(m.contracts)} {t('common.contracts')}</span>
-								</button></li>
+								</a></li>
 							{/each}
 						</ul>
 					{:else}
@@ -398,13 +401,20 @@
 		grid-auto-rows: 1fr; gap: .5rem;
 	}
 	.grid li { margin: 0; display: flex; }
+	/* An anchor, not a button, and that is the whole of this site's SEO problem
+	   in one element: a crawler follows an href and cannot follow an onclick, so
+	   while these were buttons there was no path from the homepage to any
+	   município page and none of them existed as far as an index was concerned.
+	   SvelteKit still routes the click client-side, and
+	   data-sveltekit-preload-data="hover" now starts the load on hover, so a
+	   reader gets a faster page out of it too. */
 	.mcard {
 		flex: 1; display: flex; flex-direction: column; justify-content: center; gap: .1rem;
 		text-align: left; font: inherit; cursor: pointer; padding: .6rem .75rem;
 		border: 2px solid var(--ink); border-radius: var(--radius);
-		background: var(--paper); color: var(--ink);
+		background: var(--paper); color: var(--ink); text-decoration: none;
 	}
-	.mcard:hover { background: var(--amarelo); }
+	.mcard:hover { background: var(--amarelo); color: var(--ink); text-decoration: none; }
 	.mcard b { font-family: 'Bowlby One', 'Archivo Black', Impact, sans-serif; font-weight: 400; font-size: 1.02rem; text-transform: uppercase; }
 	.mcard span { font-size: .76rem; font-weight: 600; color: var(--ink-soft); }
 

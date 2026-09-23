@@ -9,3 +9,7 @@ __pycache__/
 
 # editable installs (pip install -e ./core ./api ./ingest, as CI does)
 *.egg-info/
+
+# Working notes and design specs from the agent workflow. Local scratch, not
+# project documentation: the reasoning that survives belongs in CLAUDE.md.
+docs/superpowers/

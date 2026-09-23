@@ -424,7 +424,7 @@
 </script>
 
 <svelte:head>
-	<title>{shortName} · {t('common.site')}</title>
+	<title>{t('muni.metaTitle', { name: shortName })}</title>
 	<meta name="description" content={t('muni.metaDescription', { name: shortName })} />
 </svelte:head>
 

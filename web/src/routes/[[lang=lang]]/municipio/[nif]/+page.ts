@@ -18,10 +18,16 @@ export const load: PageLoad = async ({ url, params, fetch: _f }) => {
 	// identifier: concelho names repeat (there are two Lagoas), so a slug would
 	// need disambiguating and would still break the moment a name is respelled.
 	const nif = params.nif;
-	const municipalities = await api<Municipality[]>('/municipalities');
+	// Started here, awaited with the rest below. Neither depends on the other,
+	// on the window or on the NIF, and awaiting them in sequence cost the page
+	// two round trips before the first byte of its own data was even asked for.
+	// SvelteKit blocks the navigation for all of it, so that wait is time the
+	// reader spends looking at the previous page with nothing to say it heard
+	// the click.
+	const municipalitiesP = api<Municipality[]>('/municipalities');
 	// The legal forms the filter can offer. Served rather than listed here, so
 	// the dropdown can only ever contain values the query actually matches.
-	const legalForms = await api<Config>('/config')
+	const legalFormsP = api<Config>('/config')
 		.then((c) => c.legal_forms ?? [])
 		.catch(() => [] as string[]);
 
@@ -43,7 +49,10 @@ export const load: PageLoad = async ({ url, params, fetch: _f }) => {
 		? { date_from: dateFrom, date_to: dateTo }
 		: { year_from: yearFrom, year_to: yearTo };
 
-	const [score, suppliers, rivals, contracts, cells, stats, mandates] = await Promise.all([
+	const [municipalities, legalForms,
+	       score, suppliers, rivals, contracts, cells, stats, mandates] = await Promise.all([
+		municipalitiesP,
+		legalFormsP,
 		api<Score>(`/municipalities/${nif}/score`, win),
 		api<Supplier[]>(`/municipalities/${nif}/suppliers`, { limit: 120, ...win }),
 		api<Rival[]>(`/municipalities/${nif}/rivals`, { limit: 40, ...win }),

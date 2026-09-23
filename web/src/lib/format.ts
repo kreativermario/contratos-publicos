@@ -1,3 +1,4 @@
+import { shortMunicipality } from './seo';
 import { locale, t } from '$lib/messages';
 
 // Both languages format money the European way (EUR, comma decimals in pt-PT,
@@ -73,8 +74,7 @@ export function nearLimitLabel(value: number | null | undefined, limit: number):
 	return t('fmt.nearLimit', { gap: eur(gap), limit: eur(limit) });
 }
 
-export const shortMunicipality = (name: string): string =>
-	name.replace(/^(?:Munic[ií]pio|C[âa]mara\s+Municipal)\s+d[aeo]\s*/i, '').trim();
+export { shortMunicipality };
 
 /** A date the way a Portuguese reader writes one. The record hands over ISO,
  *  which is right for sorting and wrong for reading. */
@@ -94,3 +94,10 @@ export function severity(value: number | null | undefined): Severity {
 
 /** The written level that always ships beside the colour. */
 export const severityLabel = (sev: Severity): string => t(`sev.${sev}`);
+
+/** Municípios in the order a person looks one up: by the short name, pt
+ *  collation so "Águeda" sorts where a reader expects rather than after Z.
+ *  Alphabetical is also what makes a native <select>'s type-ahead usable, which
+ *  is the whole of "search by name" in the nav and costs no code. */
+export const byShortName = (a: { name?: string | null }, b: { name?: string | null }) =>
+	shortMunicipality(a.name ?? '').localeCompare(shortMunicipality(b.name ?? ''), 'pt');
