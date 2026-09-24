@@ -110,7 +110,7 @@ server {
     # of it at the edge. No `immutable`: unlike the bundles these keep their
     # filename when their content changes (the Bowlby One file has already been
     # re-saved once), so a year-long pin would strand readers on the old copy.
-    location ~* ^/(fonts/|pt-municipios\.geojson$|og\.png$|favicon\.svg$|apple-touch-icon\.png$) {
+    location ~* ^/(fonts/|pt-(?:municipios|distritos)\.geojson$|og\.png$|favicon\.svg$|apple-touch-icon\.png$) {
         include /etc/nginx/security-headers.conf;
         add_header Cache-Control "public, max-age=604800" always;  # a week
         try_files $uri =404;
