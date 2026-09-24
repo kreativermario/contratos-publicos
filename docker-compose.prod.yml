@@ -343,9 +343,28 @@ services:
     # step, and `podman restart <stack>_ingest-bulk_1` becomes the manual
     # "ingest now" button. It gates nothing, since api does not depend on it.
     # Same ponytail ceiling as ingest-delta above.
+    #
+    # Three sources, not one. `entities` and `mandatos` had no loop anywhere in
+    # the stack and no step in the deploy, so on a database that had never been
+    # seeded by hand they simply never ran: production served every /rankings/
+    # endpoint as `[]` and painted an empty panorama map, with nothing failing
+    # anywhere to say so. A source nobody runs is a source nobody notices is
+    # missing, and the fix is for the stack to run it rather than for a person
+    # to remember it.
+    #
+    # Separate statements rather than the `all` subcommand, which would do the
+    # same three in one process. These parsers read government sites that have
+    # changed shape five times, and they fail loudly by design; chained, the
+    # first one to break would take the others down with it in the same run.
+    # `|| true` per source keeps each failure to itself, and the next pass
+    # retries it. `all` also ends with `delta`, which has its own loop already.
+    #
+    # Mandates only move every four years, so this refreshes them far more often
+    # than they change. That is the cheap direction to be wrong in: one extra
+    # fetch a week against a fresh stack that seeds itself.
     entrypoint: ["/bin/sh", "-c"]
     command:
-      - "while :; do python -m contratos_ingest impic || true; sleep ${INGEST_BULK_INTERVAL:-604800}; done"
+      - "while :; do python -m contratos_ingest impic || true; python -m contratos_ingest entities || true; python -m contratos_ingest mandatos || true; sleep ${INGEST_BULK_INTERVAL:-604800}; done"
     user: "10001:10001"
     environment: *appenv
     depends_on:
