@@ -109,6 +109,7 @@ jobs:
           # build argument. The default lives in the Dockerfile.
           build-args: |
             PUBLIC_SITE_URL=${{ vars.PUBLIC_SITE_URL || 'https://ondevaiparar.pt' }}
+            PRERENDER_ALT_SITE=${{ vars.PRERENDER_ALT_SITE }}
           push: true
           tags: ${{ steps.meta.outputs.web }}
           cache-from: type=gha,scope=web
