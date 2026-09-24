@@ -1108,20 +1108,6 @@
 	.quip { margin: 0 0 .7rem; font-style: italic; color: var(--ink-soft); }
 	.units { margin: 0; font-size: .85rem; color: var(--ink-soft); }
 
-	/* On a phone these wrap to two rows, and with the sticky header above that is
-	   about 150px of chrome permanently stuck to a 780px screen. The tabs sit
-	   near the top anyway, so stickiness is the thing to give up. */
-	@media (max-width: 720px) {
-		.tabbar { position: static; }
-		/* one row that scrolls, not two that stack: wrapped, the bar was 85px of
-		   a 844px screen and left the active underline on the row above the
-		   active tab */
-		.tabbar [role='tablist'] {
-			flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none;
-		}
-		.tabbar [role='tablist']::-webkit-scrollbar { display: none; }
-		.tabbar [role='tab'] { flex: none; }
-	}
 	.tabbar { position: sticky; top: calc(4rem + 7px); z-index: 10; background: var(--paper-3); border-bottom: 2px solid var(--ink); }
 	/* Wraps rather than scrolls: a hidden sideways scroll is a tab nobody finds. */
 	[role='tablist'] { display: flex; flex-wrap: wrap; gap: .4rem; }
@@ -1132,9 +1118,31 @@
 	}
 	[role='tab']:hover { color: var(--ink); }
 	[role='tab'].active { color: var(--ink); border-bottom-color: var(--sangria); }
+	/* This block has to sit AFTER the base rules above. A media query adds no
+	   specificity, so the same selector later in the file wins at every width:
+	   written above them, `position: static` here never once applied and the bar
+	   stayed sticky on a phone, which is the opposite of what its own comment
+	   said it did. */
 	@media (max-width: 720px) {
+		/* The sticky header plus this bar is about 150px of chrome permanently
+		   stuck to a 780px screen. The tabs sit near the top anyway, so
+		   stickiness is the thing to give up. */
+		.tabbar { position: static; padding-bottom: .3rem; }
 		[role='tablist'] { gap: .15rem; }
-		[role='tab'] { padding: .7rem .55rem; font-size: .84rem; }
+		/* Wrapped onto two rows, never a scroller. A sideways scroll with the
+		   scrollbar hidden put Contratos, the last tab and the one most readers
+		   are looking for, off the right edge of a 375px screen with nothing on
+		   screen to say it was there. Two rows cost about 80px and the bar no
+		   longer sticks here, so they scroll away with the page.
+		   The active tab becomes a filled pill because the underline drew along
+		   the bottom of its own row, which on row one reads as belonging to the
+		   tab below it. That is what sent this to a scroller in the first place,
+		   so the scroller is not the fix: the indicator was. */
+		[role='tab'] {
+			padding: .7rem .55rem; font-size: .84rem;
+			border-bottom: 0; margin-bottom: 0; border-radius: var(--radius);
+		}
+		[role='tab'].active { background: var(--ink); color: var(--paper); }
 	}
 	@media (max-width: 400px) {
 		[role='tab'] { padding: .6rem .45rem; font-size: .78rem; }
