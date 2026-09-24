@@ -77,8 +77,8 @@ services:
       # No Cloudflare in front locally, so the header the real-ip module reads
       # is the one a local proxy would set. Production overrides it.
       NGINX_REAL_IP_HEADER: ${NGINX_REAL_IP_HEADER:-X-Forwarded-For}
-      NGINX_API_RATE: ${NGINX_API_RATE:-5r/s}
-      NGINX_API_BURST: ${NGINX_API_BURST:-20}
+      NGINX_API_RATE: ${NGINX_API_RATE:-20r/s}
+      NGINX_API_BURST: ${NGINX_API_BURST:-60}
       NGINX_COMPANY_RATE: ${NGINX_COMPANY_RATE:-30r/m}
       NGINX_COMPANY_BURST: ${NGINX_COMPANY_BURST:-15}
     tmpfs:

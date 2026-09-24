@@ -229,8 +229,8 @@ services:
       # client IP believable. See NGINX_REAL_IP_HEADER.
       NGINX_TRUSTED_PROXY: ${NGINX_TRUSTED_PROXY:-10.89.7.0/24}
       NGINX_REAL_IP_HEADER: ${NGINX_REAL_IP_HEADER:-CF-Connecting-IP}
-      NGINX_API_RATE: ${NGINX_API_RATE:-5r/s}
-      NGINX_API_BURST: ${NGINX_API_BURST:-20}
+      NGINX_API_RATE: ${NGINX_API_RATE:-20r/s}
+      NGINX_API_BURST: ${NGINX_API_BURST:-60}
       NGINX_COMPANY_RATE: ${NGINX_COMPANY_RATE:-30r/m}
       NGINX_COMPANY_BURST: ${NGINX_COMPANY_BURST:-15}
     tmpfs:
@@ -357,7 +357,22 @@ services:
 
   # One-shot, never started by the stack. Used for the initial seed and ad-hoc
   # runs, from the stack directory on the box:
-  #   podman compose --profile tools run --rm ingest impic
+  #   podman compose -f docker-compose.prod.yml --profile tools run --rm ingest impic
+  #
+  # `-f` is not optional: the file on the box keeps its own name, so a bare
+  # `podman compose` finds no configuration at all. Both flags come before `run`.
+  #
+  # Two of these have no loop of their own and are easy to forget, which is how
+  # production ran for weeks with every /rankings/ endpoint answering `[]` and
+  # the panorama map painting nothing:
+  #
+  #   ... run --rm ingest mandatos    autárquicas results, all 308 concelhos.
+  #                                   Only moves every four years, so it is a
+  #                                   one-shot rather than a loop, and it is
+  #                                   deliberately not in the deploy path: that
+  #                                   would put eleicoes.mai.gov.pt between a
+  #                                   commit and a running site.
+  #   ... run --rm ingest entities    supplier countries.
   ingest:
     <<: *hardening
     restart: "no"
