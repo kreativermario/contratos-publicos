@@ -229,8 +229,8 @@ services:
       # client IP believable. See NGINX_REAL_IP_HEADER.
       NGINX_TRUSTED_PROXY: ${NGINX_TRUSTED_PROXY:-10.89.7.0/24}
       NGINX_REAL_IP_HEADER: ${NGINX_REAL_IP_HEADER:-CF-Connecting-IP}
-      NGINX_API_RATE: ${NGINX_API_RATE:-5r/s}
-      NGINX_API_BURST: ${NGINX_API_BURST:-20}
+      NGINX_API_RATE: ${NGINX_API_RATE:-20r/s}
+      NGINX_API_BURST: ${NGINX_API_BURST:-60}
       NGINX_COMPANY_RATE: ${NGINX_COMPANY_RATE:-30r/m}
       NGINX_COMPANY_BURST: ${NGINX_COMPANY_BURST:-15}
     tmpfs:
@@ -343,9 +343,28 @@ services:
     # step, and `podman restart <stack>_ingest-bulk_1` becomes the manual
     # "ingest now" button. It gates nothing, since api does not depend on it.
     # Same ponytail ceiling as ingest-delta above.
+    #
+    # Three sources, not one. `entities` and `mandatos` had no loop anywhere in
+    # the stack and no step in the deploy, so on a database that had never been
+    # seeded by hand they simply never ran: production served every /rankings/
+    # endpoint as `[]` and painted an empty panorama map, with nothing failing
+    # anywhere to say so. A source nobody runs is a source nobody notices is
+    # missing, and the fix is for the stack to run it rather than for a person
+    # to remember it.
+    #
+    # Separate statements rather than the `all` subcommand, which would do the
+    # same three in one process. These parsers read government sites that have
+    # changed shape five times, and they fail loudly by design; chained, the
+    # first one to break would take the others down with it in the same run.
+    # `|| true` per source keeps each failure to itself, and the next pass
+    # retries it. `all` also ends with `delta`, which has its own loop already.
+    #
+    # Mandates only move every four years, so this refreshes them far more often
+    # than they change. That is the cheap direction to be wrong in: one extra
+    # fetch a week against a fresh stack that seeds itself.
     entrypoint: ["/bin/sh", "-c"]
     command:
-      - "while :; do python -m contratos_ingest impic || true; sleep ${INGEST_BULK_INTERVAL:-604800}; done"
+      - "while :; do python -m contratos_ingest impic || true; python -m contratos_ingest entities || true; python -m contratos_ingest mandatos || true; sleep ${INGEST_BULK_INTERVAL:-604800}; done"
     user: "10001:10001"
     environment: *appenv
     depends_on:
@@ -357,7 +376,22 @@ services:
 
   # One-shot, never started by the stack. Used for the initial seed and ad-hoc
   # runs, from the stack directory on the box:
-  #   podman compose --profile tools run --rm ingest impic
+  #   podman compose -f docker-compose.prod.yml --profile tools run --rm ingest impic
+  #
+  # `-f` is not optional: the file on the box keeps its own name, so a bare
+  # `podman compose` finds no configuration at all. Both flags come before `run`.
+  #
+  # Two of these have no loop of their own and are easy to forget, which is how
+  # production ran for weeks with every /rankings/ endpoint answering `[]` and
+  # the panorama map painting nothing:
+  #
+  #   ... run --rm ingest mandatos    autárquicas results, all 308 concelhos.
+  #                                   Only moves every four years, so it is a
+  #                                   one-shot rather than a loop, and it is
+  #                                   deliberately not in the deploy path: that
+  #                                   would put eleicoes.mai.gov.pt between a
+  #                                   commit and a running site.
+  #   ... run --rm ingest entities    supplier countries.
   ingest:
     <<: *hardening
     restart: "no"
