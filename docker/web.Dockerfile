@@ -14,6 +14,11 @@ COPY . ./
 # was missed, so production has been shipping the .com.
 ARG PUBLIC_SITE_URL=https://ondevaiparar.pt
 ENV PUBLIC_SITE_URL=$PUBLIC_SITE_URL
+# A second sitemap, for the redirecting .com, so it can be submitted to a Search
+# Console property of its own while the .pt is pending verification. Nothing else
+# in the build reads it and empty writes no file. See scripts/prerender.mjs.
+ARG PRERENDER_ALT_SITE=
+ENV PRERENDER_ALT_SITE=$PRERENDER_ALT_SITE
 RUN npm run build
 
 FROM nginxinc/nginx-unprivileged:1.31-alpine

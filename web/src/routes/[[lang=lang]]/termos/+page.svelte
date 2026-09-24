@@ -108,6 +108,32 @@
 			fácil dar-te o ficheiro do que veres-te às voltas com o limite.
 		</p>
 
+		<h2 class="sectag">O que sabemos sobre quem lê</h2>
+		<p>
+			Nada que te identifique. Este site não usa cookies próprios, não guarda
+			nada no teu browser e não corre nenhum serviço de estatísticas de
+			terceiros: não há Google Analytics, não há píxeis de seguimento e não há
+			publicidade. É também por isso que não encontras aqui uma janela a pedir
+			consentimento para cookies. Não haveria nada para consentir, e uma janela
+			dessas num site que não recolhe nada seria só teatro.
+		</p>
+		<p>
+			O que existe são registos técnicos, do tipo que qualquer servidor mantém.
+			O site é servido através da Cloudflare, que termina a ligação e guarda
+			registos de curta duração, incluindo o endereço IP, para proteger o
+			serviço de abuso e de ataques; os nossos servidores mantêm registos de
+			acesso pela mesma razão. Quando essa proteção é acionada, a Cloudflare
+			pode colocar um cookie técnico no teu browser, apenas para distinguir uma
+			pessoa de um robô. Serve só para isso, não te segue entre sites e não
+			alimenta publicidade nenhuma.
+		</p>
+		<p>
+			Esse tratamento assenta no interesse legítimo em manter o serviço de pé e
+			seguro, nos termos do RGPD. Não cruzamos esses registos com mais nada, não
+			os vendemos e não os damos a ninguém. Se quiseres saber o que existe sobre
+			ti, ou pedir que seja apagado, escreve para o endereço no fim desta página.
+		</p>
+
 		<h2 class="sectag">Sem garantias</h2>
 		<p>
 			O site é fornecido como está. Fazemos o possível para que os números

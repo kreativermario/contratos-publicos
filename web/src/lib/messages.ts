@@ -237,6 +237,12 @@ const PT: Record<string, string> = {
 	'muni.metaTitle': 'Contratos públicos de {name} | Onde Vai Parar',
 	'muni.metaDescription':
 		'Contratos públicos de {name}: quem recebe o dinheiro, quanto foi por ajuste direto e que empresas ganham mais.',
+	// Body copy for the prerendered shell, read as text by scripts/prerender.mjs.
+	// A crawler that does not run JavaScript sees this and nothing else, so it has
+	// to say what the page holds without quoting a single figure: these files are
+	// rewritten on deploy and never again.
+	'muni.prerenderSections':
+		'Esta página reúne, para {name}: o índice de risco e o Malandrómetro, o mapa do dinheiro por concelho, a rede entre a câmara e as empresas que lhe ganham trabalho, a lista de fornecedores, as estatísticas por ano e por tipo de trabalho, e todos os contratos um a um.',
 	'muni.tab.overview': 'Visão geral',
 	'muni.tab.map': 'Mapa',
 	'muni.tab.network': 'Rede',
@@ -911,6 +917,8 @@ const EN: Record<string, string> = {
 	'muni.metaTitle': 'Public contracts in {name} | Onde Vai Parar',
 	'muni.metaDescription':
 		'Public contracts in {name}: who gets the money, how much skipped a tender and which firms win most.',
+	'muni.prerenderSections':
+		'This page brings together, for {name}: the risk index and the Favour-meter, the map of money by municipality, the network between the council and the firms that win work from it, the supplier list, statistics by year and by kind of work, and every contract one by one.',
 	'muni.tab.overview': 'Overview',
 	'muni.tab.map': 'Map',
 	'muni.tab.network': 'Network',

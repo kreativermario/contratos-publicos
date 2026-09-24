@@ -33,6 +33,13 @@ const SITE = (process.env.PUBLIC_SITE_URL ?? 'https://ondevaiparar.pt').replace(
 // static-only sitemap rather than failing: a data source being down must never
 // block a deploy.
 const API = (process.env.PRERENDER_API ?? `${SITE}/api/v1`).replace(/\/$/, '');
+// The .com is a redirect domain and the .pt stays canonical everywhere. This is
+// not a second home for the site, it is the one Search Console property that can
+// be verified while the .pt is still pending: a property only accepts a sitemap
+// listing its own host, so the alternate needs its own file with its own URLs.
+// Google follows the 301s back to the .pt, which is how a move is signalled.
+// Empty writes no file, which is the state to return to once the .pt verifies.
+const ALT_SITE = (process.env.PRERENDER_ALT_SITE ?? '').replace(/\/$/, '');
 
 const STATIC_PATHS = ['/', '/panorama', '/faqs', '/termos'];
 const LANGS = /** @type {const} */ (['pt', 'en']);
@@ -177,11 +184,45 @@ function homeJsonLd(lang) {
 	};
 }
 
+/* ---- prerendered body ------------------------------------------------------
+ * A head alone is not a page. The app is ssr:false, so every crawler that does
+ * not run JavaScript, which is all of them except Google, was handed 616 URLs
+ * carrying a distinct title over an identical empty body: the exact shape an
+ * index reads as thin duplicate content. This writes the part of the page that
+ * does not move between deploys, which is the only part that may be written
+ * here at all. The name, what the page holds, where the numbers come from, and
+ * the one sentence that has to travel with them. No figure, no euro total, no
+ * count: these files are regenerated on deploy and nothing else touches them.
+ *
+ * It is removed on mount by src/routes/+layout.svelte. SvelteKit mounts into
+ * the `display: contents` div below it, appending rather than replacing, so
+ * without that the static copy would sit above the real page for good.
+ */
+function municipioBody(lang, { name, description }) {
+	const home = lang === 'en' ? '/en' : '/';
+	const panorama = lang === 'en' ? '/en/panorama' : '/panorama';
+	return `<div id="prerendered" class="wrap">
+	<p class="eyebrow">${esc(msg(lang, 'muni.eyebrow'))}</p>
+	<h1>${esc(name)}</h1>
+	<p>${esc(description)}</p>
+	<p>${esc(msg(lang, 'muni.prerenderSections', { name }))}</p>
+	<p>${esc(msg(lang, 'disclaimer.source'))}</p>
+	<p>${esc(msg(lang, 'disclaimer.legal'))}</p>
+	<p><a href="${esc(home)}">${esc(msg(lang, 'common.site'))}</a>
+	 | <a href="${esc(panorama)}">${esc(msg(lang, 'nav.panorama'))}</a></p>
+</div>
+`;
+}
+
+/** Put it in the body, before the div SvelteKit mounts into. */
+const withBody = (html, body) =>
+	html.replace(/(<div style="display: contents">)/, `${body}\t\t$1`);
+
 /* ---- sitemap -------------------------------------------------------------- */
 
-function sitemap(paths) {
+function sitemap(paths, base) {
 	const entries = paths.map((path) => {
-		const { pt, en } = seoUrls(SITE, path);
+		const { pt, en } = seoUrls(base, path);
 		return [pt, en].map((loc) => `  <url>
     <loc>${esc(loc)}</loc>
     <xhtml:link rel="alternate" hreflang="pt-PT" href="${esc(pt)}" />
@@ -202,7 +243,13 @@ ${entries}
 
 /* ---- run ------------------------------------------------------------------ */
 
-const shell = readFileSync(join(BUILD, 'index.html'), 'utf8');
+// Comments are for whoever reads this repository, not for whoever loads the
+// page. app.html is the only source of them that survives the build (the Svelte
+// compiler drops component comments already), and every file written below is a
+// copy of it, so stripping once here strips them everywhere. There is no
+// `%sveltekit.body%` content to protect: the app is ssr:false, so the shell
+// carries no hydration markers of the `<!--[-->` kind.
+const shell = readFileSync(join(BUILD, 'index.html'), 'utf8').replace(/\n?\s*<!--[\s\S]*?-->/g, '');
 
 /** The shell path for a route in a language tree: '' for pt, '/en' for en. */
 const fileFor = (lang, path) =>
@@ -260,13 +307,13 @@ for (const m of municipalities) {
 	for (const lang of LANGS) {
 		const description = msg(lang, 'muni.metaDescription', { name });
 		const canonical = lang === 'en' ? en : pt;
-		written.push(write(lang, path, rewriteHead(shell, {
+		written.push(write(lang, path, withBody(rewriteHead(shell, {
 			title: msg(lang, 'muni.metaTitle', { name }),
 			description,
 			canonical,
 			alternates: [['pt-PT', pt], ['en', en], ['x-default', pt]],
 			jsonLd: municipioJsonLd({ name, canonical, description, lang })
-		})));
+		}), municipioBody(lang, { name, description }))));
 	}
 }
 
@@ -274,7 +321,8 @@ const paths = [
 	...STATIC_PATHS,
 	...municipalities.filter((m) => m?.nif).map((m) => `/municipio/${encodeURIComponent(m.nif)}`)
 ];
-writeFileSync(join(BUILD, 'sitemap.xml'), sitemap(paths));
+writeFileSync(join(BUILD, 'sitemap.xml'), sitemap(paths, SITE));
+if (ALT_SITE) writeFileSync(join(BUILD, 'sitemap-alt.xml'), sitemap(paths, ALT_SITE));
 
 // The failure that would otherwise reach production in silence: a sitemap
 // promising a URL that resolves to the generic shell.
@@ -288,5 +336,6 @@ for (const path of paths) {
 
 console.log(
 	`ok: ${written.length} prerendered pages, ${paths.length * 2} sitemap URLs` +
+	(ALT_SITE ? ` (+ sitemap-alt.xml for ${ALT_SITE})` : '') +
 	(municipalities.length ? '' : ' (no API, static paths only)')
 );

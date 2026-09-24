@@ -105,7 +105,7 @@
 		await loadMore(key);
 	}
 
-	async function loadMore(key: string, btn?: HTMLElement) {
+	async function loadMore(key: string) {
 		openBusy = true;
 		try {
 			const next = await api<ContractRow[]>(`/municipalities/${nif}/contracts`, {
@@ -119,10 +119,13 @@
 			openError = true;
 		} finally {
 			openBusy = false;
-			// The new rows are inserted above this button, so it slides down the
-			// page. Pull it back under the cursor instead of leaving the reader
-			// somewhere they did not ask to be.
-			if (btn) requestAnimationFrame(() => btn.scrollIntoView({ block: 'nearest' }));
+			// Nothing scrolls here on purpose. The new rows are appended ABOVE this
+			// button, so they appear exactly where the reader was already looking
+			// and the browser holds the offset by itself. Following the button
+			// instead pulled the page down past every row it had just added, which
+			// landed the reader at the bottom of a list they had not read yet and
+			// made an expand look like a navigation. On a phone, where the stacked
+			// rows are tall, that was most of a screen per click.
 		}
 	}
 </script>
@@ -191,7 +194,7 @@
 								<p class="more">
 									<span>{t('tbl.showingOf', { shown: num(openRows.length), total: num(openTotal) })}</span>
 									{#if !openDone}
-										<button type="button" onclick={(e) => loadMore(key, e.currentTarget)}>{t('tbl.showMoreN', { n: num(Math.min(PAGE, openTotal - openRows.length)) })}</button>
+										<button type="button" onclick={() => loadMore(key)}>{t('tbl.showMoreN', { n: num(Math.min(PAGE, openTotal - openRows.length)) })}</button>
 									{/if}
 								</p>
 							{:else if openError}

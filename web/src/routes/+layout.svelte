@@ -14,6 +14,16 @@
 		document.documentElement.lang = locale();
 	});
 
+	// scripts/prerender.mjs writes a static copy of the slow-moving half of a
+	// município page into the shell, for the crawlers that never run this file.
+	// SvelteKit mounts into the div AFTER it and appends rather than replaces, so
+	// it has to be taken out by hand once the real page exists. `$effect` rather
+	// than `onMount`: this layout is the root, it runs once per page load, and by
+	// the time an effect flushes the app is on screen.
+	$effect(() => {
+		document.getElementById('prerendered')?.remove();
+	});
+
 	// Same reason: one shell serves every route, so the canonical link cannot be
 	// baked into app.html. See $lib/seo.
 	const urls = $derived(seoUrls(PUBLIC_SITE_URL, page.url.pathname));
