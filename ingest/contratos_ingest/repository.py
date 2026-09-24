@@ -146,7 +146,24 @@ class EntityRepository:
             total += self._write(batch)
         return total
 
+    @staticmethod
+    def _dedupe(batch: list[tuple]) -> list[tuple]:
+        """One NIF, one row per statement.
+
+        The same failure ContractRepository._write_batch already guards, in the
+        repository that was missed: entidades.json lists a NIF more than once,
+        and Postgres refuses an ON CONFLICT upsert whose source touches a target
+        row twice ("cannot affect row a second time"). It is not a partial load
+        either, it aborts the statement and kills the run, which is how a
+        national ingest stopped on the entities pass with contracts already in.
+
+        Last one wins, as with contracts: repeats are the same entity seen
+        again, not competing versions of it. NIF is COLUMNS[0].
+        """
+        return list({row[0]: row for row in batch}.values())
+
     def _write(self, batch: list[tuple]) -> int:
+        batch = self._dedupe(batch)
         raw_conn = self.db.engine.raw_connection()
         try:
             pg = raw_conn.driver_connection
