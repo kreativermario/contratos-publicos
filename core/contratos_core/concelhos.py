@@ -350,6 +350,25 @@ def concelho_name(buyer_name: str) -> str:
     return _PREFIX.sub("", buyer_name or "").strip()
 
 
+#: A buyer is a câmara only if its name says so. Anchored at the start and
+#: closed with a word boundary, because the register is full of bodies whose
+#: names merely contain a concelho: "Universidade do Porto", "Agrupamento de
+#: Escolas de Lousada", "Centro Hospitalar de Lisboa Central". Note that
+#: "Câmara de Lobos" is itself a concelho in Madeira, so "câmara" alone can
+#: never be the test: only "Câmara Municipal" counts.
+_CAMARA = re.compile(r"^\s*(munic[íi]pio|c[âa]mara\s+municipal)\b", re.IGNORECASE)
+
+
+def is_camara(name: str | None) -> bool:
+    """Is this buyer name a município, rather than any other public body?
+
+    IMPIC publishes every public buyer in the country, so this is the only
+    thing separating the 308 câmaras from the ~5 700 hospitals, schools,
+    misericórdias and infrastructure companies that share the register.
+    """
+    return bool(name and _CAMARA.match(name))
+
+
 _BY_KEY: dict[str, list[tuple[str, str, str, str]]] = {}
 for _row in CONCELHOS:
     _BY_KEY.setdefault(_row[2], []).append(_row)

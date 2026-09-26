@@ -10,7 +10,7 @@ from datetime import date
 from contratos_core import (CONCELHOS, CPV_SECTORS, CompanyProfile, Contract,
                              ContractBidder, ContractLocation, ContractSupplier,
                              Entity, Mandate, Settings, concelho_name, dico_for,
-                             divisions_for, sector_for)
+                             divisions_for, is_camara, sector_for)
 from .services.flags import FlagContext, slice_groups, supplier_id
 
 from .services.company import legal_form_from_name, legal_form_sql
@@ -172,7 +172,16 @@ class MunicipalityRepository:
             .group_by(Contract.buyer_nif)
             .order_by(func.sum(Contract.value).desc().nulls_last())
         )
-        return [row._asdict() for row in self.session.execute(stmt)]
+        # IMPIC publishes every public buyer in the country, not just câmaras.
+        # While MUNICIPALITY_NIFS scoped the ingest this filter was implicit;
+        # the moment it was emptied for national coverage the list grew from
+        # 308 municípios to ~5 975 buyers, carrying hospitals, agrupamentos de
+        # escolas and misericórdias into the picker, the nav, the prerender and
+        # the sitemap. Filtered here rather than in SQL because this is also
+        # what `_nif_dico_pairs` and therefore both rankings read, and because
+        # Postgres regexes spell a word boundary \y, not \b.
+        return [row._asdict() for row in self.session.execute(stmt)
+                if is_camara(row.name)]
 
     def get(self, nif: str) -> dict | None:
         stmt = (

@@ -3,11 +3,10 @@ from __future__ import annotations
 
 import argparse
 import logging
-import re
 import sys
 
 from contratos_core import (CONCELHOS, Database, concelho_name, dico_for,
-                             get_settings)
+                             get_settings, is_camara)
 
 from .repository import (ContractRepository, EntityRepository,
                          MandateRepository)
@@ -26,18 +25,6 @@ PENINSULA_SETUBAL = (
     "Alcochete", "Almada", "Barreiro", "Moita", "Montijo",
     "Palmela", "Seixal", "Sesimbra", "Setúbal",
 )
-
-
-#: A buyer name that is the câmara itself, and not something else in the same
-#: town. `concelho_name` only strips the administrative prefix, so without this
-#: "Universidade do Porto" resolved to Porto, "Agrupamento de Escolas de
-#: Lousada" to Lousada, and each shadowed the real câmara because it happened to
-#: appear first in the file.
-_CAMARA = re.compile(r"^\s*(munic[íi]pio|c[âa]mara municipal)\b", re.IGNORECASE)
-
-
-def _is_camara(name: str | None) -> bool:
-    return bool(name and _CAMARA.match(name))
 
 
 class Ingestor:
@@ -106,7 +93,7 @@ class Ingestor:
         source = ImpicContractSource(self.settings)
         found: dict[str, tuple[str, str]] = {}
         for nif, name in source.buyers().items():
-            if not _is_camara(name):
+            if not is_camara(name):
                 continue
             code = dico_for(concelho_name(name))
             if code and code in target:
