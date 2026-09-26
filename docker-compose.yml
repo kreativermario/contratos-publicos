@@ -67,7 +67,7 @@ services:
       additional_contexts:
         nginxconf: ./nginx
       args:
-        PUBLIC_SITE_URL: ${PUBLIC_SITE_URL:-https://ondevaiparar.com}
+        PUBLIC_SITE_URL: ${PUBLIC_SITE_URL:-https://ondevaiparar.pt}
     user: "101:101"
     depends_on: [api]
     environment:

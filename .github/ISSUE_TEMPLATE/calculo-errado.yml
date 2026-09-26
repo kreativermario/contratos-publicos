@@ -13,7 +13,7 @@ body:
     attributes:
       label: Onde
       description: O endereço da página, ou o NIF do município, ou o id do contrato.
-      placeholder: https://ondevaiparar.com/municipio/504293125
+      placeholder: https://ondevaiparar.pt/municipio/504293125
     validations:
       required: true
   - type: textarea

@@ -606,19 +606,20 @@ the amount and the unit separately; the unit goes in a `.unit` span (Archivo
   was concerned. They are anchors now (`Landing.svelte`), which also buys
   `data-sveltekit-preload-data="hover"` for free. The supplier and contract
   tables were already anchors, so the crawl graph flows from there.
-- **The `.com` default outlived its fix.** `vite.config.ts` was corrected to
-  the `.pt`, and `docker/web.Dockerfile` and `deploy.yml` were not, so every
-  production build baked the redirecting domain into every canonical, the
-  sitemap and robots.txt. There is no `PUBLIC_SITE_URL` in the production
-  environment, so those defaults are what actually shipped. Three places carry
-  this default. Change one, check the other two.
+- **The `.com` default outlived its fix, twice.** `PUBLIC_SITE_URL` is baked in
+  at build time into every canonical, the hreflang pair, the sitemap and
+  robots.txt, and it is spelled in **four** defaults: `web/vite.config.ts`,
+  `docker/web.Dockerfile`, `.github/workflows/deploy.yml` and
+  `docker-compose.yml`. The first was corrected to the `.pt` and the others were
+  not, so production shipped the redirecting domain. Change one, check the other
+  three. Then check the place that beats all four: `deploy.yml` reads
+  `vars.PUBLIC_SITE_URL` and only falls back to its own default, so a
+  repository variable left on the old domain silently outranks every default
+  you just fixed. It did, for the whole of the `.com` era.
 - The favicon is `static/favicon.svg`, the poster gauge, and
   `apple-touch-icon.png` is that same file rasterised at 180px. They were an
   emoji data URI and an unrelated red gauge; a browser tab and an iOS home
   screen showing two different marks is the one place the brand is seen most.
-- The default `PUBLIC_SITE_URL` in `vite.config.ts` is the **`.pt`**. A bare
-  `npm run build` with the `.com` there baked the redirecting domain into every
-  canonical, the sitemap and robots.txt.
 - **BSD sed has no `\b`.** A word-boundary pattern silently no-ops on macOS
   rather than erroring, so a bulk rename looks like it worked and leaves every
   reference behind. Use literal patterns, or `[[:<:]]` / `[[:>:]]`.

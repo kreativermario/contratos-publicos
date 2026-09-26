@@ -159,7 +159,7 @@
 		     mailbox behind it. -->
 		<p>
 			Em qualquer destes casos, escreve para
-			<a href="mailto:contacto@ondevaiparar.com">contacto@ondevaiparar.com</a>.
+			<a href="mailto:contacto@ondevaiparar.pt">contacto@ondevaiparar.pt</a>.
 		</p>
 
 		<p class="fine">
