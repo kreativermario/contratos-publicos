@@ -283,10 +283,17 @@ jobs:
           # which says nothing about whether the API can reach the database.
           # Without this a broken rollout reports success and the first person
           # to find out is a reader.
+          #
+          # 10 minutes, not 3. The API waits on the `migrate` one-shot, and that
+          # one-shot now creates missing indexes as well as missing columns. A
+          # first deploy that introduces an index on the national contracts
+          # table spends minutes building it, once, and timing the deploy out
+          # while the database is busy doing exactly what it was told would be
+          # a confusing way to fail.
           cid=$(podman compose -f docker-compose.prod.yml ps -q api)
           status=unknown
           i=0
-          while [ "$i" -lt 36 ]; do
+          while [ "$i" -lt 120 ]; do
             status=$(podman inspect --format '{{.State.Health.Status}}' "$cid" 2>/dev/null || echo unknown)
             [ "$status" = healthy ] && break
             i=$((i + 1))

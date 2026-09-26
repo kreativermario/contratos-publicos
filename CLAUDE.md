@@ -669,13 +669,21 @@ the amount and the unit separately; the unit goes in a `.unit` span (Archivo
   without the new keys renders as zeros and empty sections. Every API request
   carries the SvelteKit build id so a new bundle never reads an old one's cache.
   The same cache is why the API must ship keys and not prose.
-- **`create_all` creates missing *tables*, not missing *columns*.** On its own
+- **`create_all` creates missing *tables*, not missing *columns* or *indexes*.** On its own
   it silently ignores a table that exists but has drifted, which is how `status`
   and `county` reached production as columns the ORM had and Postgres did not,
   500ing every request that read them. `Database.create_all` now follows it with
   `add_missing_columns`, so the `migrate` one-shot the prod stack already runs
   ahead of the API brings columns up too, and there is no server to log into.
-  It is **additive only** and refuses anything else by name: a NOT NULL column
+  `add_missing_indexes` is the same idea for the same reason: `create_all`
+  builds a table's indexes when it builds the table and does nothing for one
+  added later, so `ix_contracts_buyer_summary` would never have existed in
+  production. It is **not** `CONCURRENTLY`, because that cannot run in a
+  transaction and leaves an INVALID index behind on failure, which is a bad
+  thing to find on a box with no shell; the one-shot holds the lock while
+  nothing is serving. The cost is that the deploy introducing an index on the
+  national table takes minutes, which is why the health gate is 10 minutes.
+  The column half is **additive only** and refuses anything else by name: a NOT NULL column
   with no default has nothing to put in the existing rows, and a primary key
   cannot be introduced after the fact. A rename, a type change or a drop is
   still a real migration, and that is the point at which this gets swapped for

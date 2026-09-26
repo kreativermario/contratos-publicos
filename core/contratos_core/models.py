@@ -55,6 +55,15 @@ class Contract(Base):
 
     __table_args__ = (
         Index("ix_contracts_buyer", "buyer_nif", "signed_date"),
+        # The municipality list and both rankings ask the same question: per
+        # buyer, how many contracts, how much money, first and last date, and
+        # the most common spelling of the name. Nationally that meant a seq scan
+        # of every column of every contract to answer with 308 rows, measured at
+        # 18.8s. INCLUDE carries the four columns the aggregate reads into the
+        # index itself, so it is an index-only scan over a structure a fraction
+        # of the heap's width, already ordered by the GROUP BY key.
+        Index("ix_contracts_buyer_summary", "buyer_nif",
+              postgresql_include=["buyer_name", "value", "signed_date"]),
         Index("ix_contracts_year", "year"),
         Index("ix_contracts_procedure", "procedure"),
         Index("ix_contracts_cpv", "cpv"),

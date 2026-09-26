@@ -6,7 +6,7 @@ from contextlib import contextmanager
 
 from sqlalchemy import Column, Engine, Table, create_engine, inspect, text
 from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.schema import CreateColumn
+from sqlalchemy.schema import CreateColumn, CreateIndex
 
 from .models import Base
 from .settings import Settings
@@ -33,6 +33,16 @@ def unaddable(column: Column) -> str | None:
     return None
 
 
+def missing_indexes(table: Table, have: set[str]) -> list:
+    """Indexes the ORM declares that the live table does not carry.
+
+    The mirror of `missing_columns`, and needed for the same reason:
+    `create_all` builds a table's indexes when it builds the table, and does
+    nothing at all for an index added to a table that already exists.
+    """
+    return [i for i in table.indexes if i.name not in have]
+
+
 class Database:
     def __init__(self, settings: Settings, *, echo: bool = False) -> None:
         self._settings = settings
@@ -56,10 +66,12 @@ class Database:
         right place for it and there is no server to log into.
 
         Additive only, deliberately. It adds nullable columns and refuses
-        anything else rather than guessing: see `unaddable` below.
+        anything else rather than guessing: see `unaddable` below. Indexes are
+        additive by nature, so they need no such guard.
         """
         Base.metadata.create_all(self.engine)
         self.add_missing_columns()
+        self.add_missing_indexes()
 
     def add_missing_columns(self) -> None:
         """ALTER TABLE ADD COLUMN for every column the ORM has and the database
@@ -81,6 +93,30 @@ class Database:
                 ddl = CreateColumn(column).compile(self.engine).string
                 with self.engine.begin() as conn:
                     conn.execute(text(f'ALTER TABLE "{table.name}" ADD COLUMN {ddl}'))
+
+    def add_missing_indexes(self) -> None:
+        """CREATE INDEX for every index the ORM declares and the database lacks.
+
+        Idempotent, like `add_missing_columns`, so every deploy runs it and
+        almost every deploy finds nothing to do.
+
+        Not CONCURRENTLY, deliberately. CONCURRENTLY cannot run inside a
+        transaction and leaves an INVALID index behind when it fails, which is
+        a worse thing to discover on a box with no shell. This runs in the
+        `migrate` one-shot that the API waits on, so there is no traffic to
+        protect from the lock: the cost is that the first deploy introducing an
+        index on a large table takes minutes, which is why the deploy's health
+        gate is generous.
+        """
+        inspector = inspect(self.engine)
+        present = set(inspector.get_table_names())
+        for table in Base.metadata.sorted_tables:
+            if table.name not in present:
+                continue  # create_all just made it, with every index
+            have = {i["name"] for i in inspector.get_indexes(table.name)}
+            for index in missing_indexes(table, have):
+                with self.engine.begin() as conn:
+                    conn.execute(CreateIndex(index, if_not_exists=True))
 
     @contextmanager
     def session(self) -> Generator[Session, None, None]:

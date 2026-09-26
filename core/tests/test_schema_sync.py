@@ -6,8 +6,8 @@ ORM had and Postgres did not, and every request that read them answered 500.
 The decision of what may be added in place is pure, so it is tested here; the
 ALTER itself is two lines around it.
 """
-from contratos_core.db import missing_columns, unaddable
-from contratos_core.models import Base, CompanyProfile
+from contratos_core.db import missing_columns, missing_indexes, unaddable
+from contratos_core.models import Base, CompanyProfile, Contract
 from sqlalchemy import Column, Integer, String, Text
 
 
@@ -52,3 +52,32 @@ def test_every_column_the_orm_declares_today_could_be_added_in_place():
         if column.name in ("status", "county") and unaddable(column)
     ]
     assert offenders == []
+
+
+def test_a_table_whose_indexes_are_all_present_needs_nothing():
+    table = Contract.__table__
+    have = {i.name for i in table.indexes}
+    assert missing_indexes(table, have) == []
+
+
+def test_an_index_added_to_an_existing_table_is_reported():
+    """`create_all` builds a table's indexes with the table and never after.
+
+    So an index added to the ORM later is invisible to it, exactly as a column
+    was. The summary index is the one that made this matter: without it the
+    município list seq-scanned the national contracts table for 18.8s.
+    """
+    table = Contract.__table__
+    have = {i.name for i in table.indexes} - {"ix_contracts_buyer_summary"}
+    assert [i.name for i in missing_indexes(table, have)] == ["ix_contracts_buyer_summary"]
+
+
+def test_the_summary_index_covers_what_the_aggregate_reads():
+    """An index-only scan needs every column the query touches to be in the
+    index. Drop one from INCLUDE and Postgres goes back to the heap, silently,
+    and the 18.8s comes back."""
+    index = next(i for i in Contract.__table__.indexes
+                 if i.name == "ix_contracts_buyer_summary")
+    assert [c.name for c in index.columns] == ["buyer_nif"]
+    assert set(index.dialect_options["postgresql"]["include"]) == {
+        "buyer_name", "value", "signed_date"}
