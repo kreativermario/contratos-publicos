@@ -400,7 +400,19 @@
 		   its card taller than its neighbours */
 		grid-auto-rows: 1fr; gap: .5rem;
 	}
-	.grid li { margin: 0; display: flex; }
+	.grid li {
+		margin: 0; display: flex;
+		/* 308 cards, and the reader sees eight. content-visibility lets the
+		   browser skip layout and paint for the rows that are off screen, which
+		   is what pagination would buy, without what pagination would cost: the
+		   anchors all stay in the DOM, so the crawl path from the homepage to
+		   every /municipio/<nif> survives. That path is the whole reason these
+		   are anchors and not buttons (see below). `auto` in the intrinsic size
+		   means the real height is remembered once a card has been rendered, so
+		   the scrollbar stops resizing after the first pass. */
+		content-visibility: auto;
+		contain-intrinsic-size: auto 72px;
+	}
 	/* An anchor, not a button, and that is the whole of this site's SEO problem
 	   in one element: a crawler follows an href and cannot follow an onclick, so
 	   while these were buttons there was no path from the homepage to any

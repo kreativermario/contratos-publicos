@@ -114,7 +114,7 @@ silently deflates the index.
 
 - **`risk_index`**, the unweighted mean of whatever is measurable.
 - **`satirical_index`**, the same numbers with the more revealing ones weighted
-  heavier and worse manners. Rendered as the **Malandrómetro**. It returns
+  heavier and worse manners. Rendered as the **Índice de cunhas**. It returns
   `{score, band, tone, units}`: three bands tied to the same cutoffs the
   colours use, so the words and the colour can never disagree.
 

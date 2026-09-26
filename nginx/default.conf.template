@@ -14,6 +14,22 @@
 limit_req_zone $binary_remote_addr zone=api_rl:10m rate=${NGINX_API_RATE};
 limit_conn_zone $binary_remote_addr zone=api_conn:10m;
 
+# The API answers from aggregates over the whole national register, and they are
+# not cheap: /rankings/parties and /rankings/districts each took about 12s
+# measured against production, /municipalities about 5s. The underlying data
+# moves once a day at the very most (ingest-delta is daily, the bulk weekly), so
+# serving the same answer twice out of postgres is pure waste.
+#
+# /var/cache/nginx is already a tmpfs, which means this cache is RAM and counts
+# against the container's mem_limit. Hence a modest default and a knob.
+#
+# Safe across a deploy without a purge step because every request the site makes
+# carries the SvelteKit build id, so a new bundle asks new URLs and can never be
+# answered from the previous shape's entries. That is the same property the
+# Cache-Control header already relies on.
+proxy_cache_path /var/cache/nginx/api levels=1:2 keys_zone=apicache:10m
+                 max_size=${NGINX_CACHE_SIZE} inactive=1h use_temp_path=off;
+
 # The company profile is the one endpoint with an outbound cost: on a cache miss
 # it fetches sicae.pt and empresadb.pt synchronously. Every other route is a
 # local database read. Left on the general limit, somebody walking NIFs does not
@@ -86,6 +102,11 @@ server {
     # This is a read-only site. Anything else is noise or probing.
     if ($request_method !~ ^(GET|HEAD)$) { return 405 "method not allowed\n"; }
 
+    # /.well-known is the one dotted path that is meant to be public (RFC 8615).
+    # ^~ is load-bearing: a prefix match with ^~ stops nginx ever testing the
+    # regex locations below, so without it the dotfile 404 swallows security.txt.
+    location ^~ /.well-known/ { try_files $uri =404; }
+
     # Dotfiles, editor leftovers and VCS dirs: 404, never 403 - a 403 confirms
     # the path exists. Covers /.env, /.git/config, /.svelte-kit, backups.
     location ~ (?:^|/)\.                { return 404 ""; access_log off; log_not_found off; }
@@ -124,6 +145,25 @@ server {
         limit_req  zone=api_companies burst=${NGINX_COMPANY_BURST} nodelay;
         limit_conn api_conn 20;
         limit_req_status 429;
+
+        # A cold /rankings/parties costs 12s, so the stampede guard matters more
+        # than the cache: proxy_cache_lock sends ONE request upstream and makes
+        # the rest wait for its answer, instead of handing postgres fifty
+        # identical twelve-second aggregates. background_update plus the
+        # `updating` stale rule then refreshes an expired entry behind a reader
+        # who is already being served, so nobody waits for a revalidation.
+        #
+        # Only 200s are cached. A 404 from the API is a real answer about one
+        # NIF and cheap to repeat; a 5xx must never be remembered.
+        proxy_cache apicache;
+        proxy_cache_valid 200 ${NGINX_CACHE_TTL};
+        proxy_cache_key $request_method$host$request_uri;
+        proxy_cache_lock on;
+        proxy_cache_lock_timeout 30s;
+        proxy_cache_background_update on;
+        proxy_cache_use_stale updating error timeout http_500 http_502 http_503 http_504;
+        proxy_cache_methods GET HEAD;
+        add_header X-Cache-Status $upstream_cache_status always;
 
         proxy_pass http://${NGINX_API_UPSTREAM}/;
         proxy_http_version 1.1;

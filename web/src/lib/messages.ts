@@ -242,7 +242,7 @@ const PT: Record<string, string> = {
 	// to say what the page holds without quoting a single figure: these files are
 	// rewritten on deploy and never again.
 	'muni.prerenderSections':
-		'Esta página reúne, para {name}: o índice de risco e o Malandrómetro, o mapa do dinheiro por concelho, a rede entre a câmara e as empresas que lhe ganham trabalho, a lista de fornecedores, as estatísticas por ano e por tipo de trabalho, e todos os contratos um a um.',
+		'Esta página reúne, para {name}: o índice de risco e o índice de cunhas, o mapa do dinheiro por concelho, a rede entre a câmara e as empresas que lhe ganham trabalho, a lista de fornecedores, as estatísticas por ano e por tipo de trabalho, e todos os contratos um a um.',
 	'muni.tab.overview': 'Visão geral',
 	'muni.tab.map': 'Mapa',
 	'muni.tab.network': 'Rede',
@@ -275,13 +275,13 @@ const PT: Record<string, string> = {
 	'muni.riskIndex': 'Índice de risco',
 	'muni.riskCaption':
 		'Média dos {n} indicadores mensuráveis neste período, todos em percentagem do dinheiro.',
-	'muni.satireIndex': 'Malandrómetro',
+	'muni.satireIndex': 'Índice de cunhas',
 	'muni.satireCaption':
 		'Os mesmos indicadores, mas com os mais reveladores a pesar mais: concursos com um só concorrente, dinheiro concentrado em poucas empresas, ajuste direto, contratos encostados ao limite e dinheiro a empresas novas.',
 	'muni.units':
 		'Dá para {bifanas} bifanas, ou {salarios} salários mínimos anuais.',
 	'muni.chipRisk': 'risco',
-	'muni.chipSatire': 'malandrómetro',
+	'muni.chipSatire': 'cunhas',
 	'muni.indicators': 'Indicadores',
 	'muni.whoGotMost': 'Quem recebeu mais',
 	'muni.groupBy': 'Agrupar por',
@@ -951,12 +951,12 @@ const EN: Record<string, string> = {
 	'muni.riskIndex': 'Risk index',
 	'muni.riskCaption':
 		'The average of the {n} indicators measurable in this period, all of them as a share of the money.',
-	'muni.satireIndex': 'Favour-meter',
+	'muni.satireIndex': 'Favours index',
 	'muni.satireCaption':
 		'The same indicators, with the most telling ones weighing more: tenders with a single bidder, money concentrated in few companies, direct awards, contracts hugging a ceiling, and money to brand new companies.',
 	'muni.units': 'That buys {bifanas} pork sandwiches, or {salarios} annual minimum wages.',
 	'muni.chipRisk': 'risk',
-	'muni.chipSatire': 'favour-meter',
+	'muni.chipSatire': 'favours',
 	'muni.indicators': 'Indicators',
 	'muni.whoGotMost': 'Who was paid most',
 	'muni.groupBy': 'Group by',

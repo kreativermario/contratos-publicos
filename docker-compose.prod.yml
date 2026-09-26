@@ -218,7 +218,7 @@ services:
   web:
     <<: *hardening
     image: ${WEB_IMAGE}
-    mem_limit: ${MEM_WEB:-128m}
+    mem_limit: ${MEM_WEB:-256m}   # includes the tmpfs API cache, see NGINX_CACHE_SIZE
     user: "101:101"
     depends_on: [api]
     environment:
@@ -233,6 +233,10 @@ services:
       NGINX_API_BURST: ${NGINX_API_BURST:-60}
       NGINX_COMPANY_RATE: ${NGINX_COMPANY_RATE:-30r/m}
       NGINX_COMPANY_BURST: ${NGINX_COMPANY_BURST:-15}
+      # The API cache lives on the /var/cache/nginx tmpfs below, so this is RAM
+      # and it counts against mem_limit. Raise both together or neither.
+      NGINX_CACHE_SIZE: ${NGINX_CACHE_SIZE:-64m}
+      NGINX_CACHE_TTL: ${NGINX_CACHE_TTL:-1h}
     tmpfs:
       # tmpfs mounts default to root ownership; nginx runs as uid 101. See the
       # db service above for why these carry a mode and no owner.

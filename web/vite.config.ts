@@ -23,6 +23,13 @@ export default defineConfig({
 
 			adapter: adapter({ fallback: 'index.html' }),
 
+			// '*' means every route with no dynamic segment, and the crawler finds
+			// the rest by following links. /.well-known/security.txt is neither:
+			// its directory is spelled [x+2e]well-known so SvelteKit does not skip
+			// it as a dotfile, which makes it look dynamic to '*', and nothing on
+			// the site links to it. Without this line the build fails outright.
+			prerender: { entries: ['*', '/.well-known/security.txt'] },
+
 			// Hash-based CSP: SvelteKit emits a hash for its one inline bootstrap
 			// script, so we never need 'unsafe-inline' for scripts. frame-ancestors
 			// is set by nginx instead - a meta-tag CSP cannot carry it.

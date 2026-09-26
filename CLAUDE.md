@@ -201,8 +201,9 @@ the joke can never disagree with the data.
 `satirical_index` returns `{score, band, tone, units}` and **no prose**: `band`
 is `clean | fishy | blatant`, `tone` is `ok | warn | critical`, and the client
 words one and paints the other. Two fields rather than one, so the words and the
-colour cannot disagree. Its rendered label is **Malandrómetro**
-(`muni.satireIndex`). The word "cunha" survives in body copy on purpose: it is
+colour cannot disagree. Its rendered label is **Índice de cunhas**
+(`muni.satireIndex`), which pairs with `muni.riskIndex`, "Índice de risco":
+the two indices read as one family rather than as a gauge next to a number. The word "cunha" survives in body copy on purpose: it is
 what a Portuguese reader actually calls the thing.
 
 **Every scored signal is a percentage of the money.** That is what makes the
@@ -483,7 +484,7 @@ Severity is `ok / warn / serious / critical` and always ships with a written
 label, never colour alone. A signal with no value renders "não medível" in grey
 with no bar: an unmeasurable signal must never borrow the green of a clean one.
 
-The Malandrómetro verdict carries its own `tone` so the words and the colour
+The índice de cunhas verdict carries its own `tone` so the words and the colour
 cannot disagree: clean reads green and says so, blatant reads red. Money is also
 counted in bifanas, at `BIFANA` euros each, and in annual minimum wages.
 Deliberately not per capita: no population figure ships with the contract data,

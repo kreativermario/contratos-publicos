@@ -1,0 +1,52 @@
+<!doctype html>
+<!--
+  The source of web/static/og.png, the one image every WhatsApp, X, Slack and
+  LinkedIn unfurl of this site shows. It lives here because the PNG it produces
+  rots silently: the previous one still read "cunhómetro" long after the rebrand,
+  and nothing on the site or in CI could see it. Regenerate it after any change
+  to the name, the palette or the fonts.
+
+      node scripts/og/build.mjs
+
+  Chrome paints only its viewport, which is shorter than the window asked for,
+  so the page is rendered taller than 630 and cropped back. That is what
+  build.mjs is for; a bare --screenshot leaves the stripe unpainted.
+-->
+<html lang="pt-PT"><head><meta charset="utf-8">
+<style>
+@font-face { font-family:'Bowlby One'; src:url('../../web/static/fonts/taiPGmVuC4y96PFeqp8sqomI_L8zYK8.woff2') format('woff2'); font-weight:400; }
+@font-face { font-family:'Archivo'; src:url('../../web/static/fonts/k3kPo8UDI-1M0wlSV9XAw6lQkqWY8Q82sLydOxKsv4Rn.woff2') format('woff2'); font-weight:100 900; }
+:root{ --paper:#fff5d8; --ink:#240706; --ink-soft:#6b4a44;
+       --sangria:#df2225; --amarelo:#f6ce00; --azulejo:#007ca6; --manjerico:#11ad32; }
+*{ margin:0; padding:0; box-sizing:border-box; }
+html,body{ background:var(--paper); }
+.card{
+  position:relative; width:1200px; height:630px; overflow:hidden;
+  background-color:var(--paper);
+  background-image:
+    repeating-linear-gradient(45deg,  rgba(0,124,166,.045) 0 2px, transparent 2px 22px),
+    repeating-linear-gradient(-45deg, rgba(0,124,166,.045) 0 2px, transparent 2px 22px);
+  font-family:'Archivo',sans-serif; color:var(--ink);
+  display:flex; flex-direction:column; justify-content:center; padding:0 86px 34px; }
+.mark{ width:96px; height:96px; margin-bottom:34px; }
+.poster{ line-height:1.52; filter:drop-shadow(.1em .1em 0 var(--sangria));
+         font-family:'Bowlby One',sans-serif; font-size:86px; letter-spacing:-.01em; }
+.poster span{ display:inline; background:var(--ink); color:var(--paper);
+              -webkit-box-decoration-break:clone; box-decoration-break:clone;
+              padding:.1em .26em; text-transform:uppercase; }
+.sub{ margin-top:40px; font-size:31px; font-weight:600; line-height:1.4; max-width:880px; }
+.src{ margin-top:22px; font-size:20px; font-weight:600; color:var(--ink-soft); }
+.stripe{ position:absolute; left:0; right:0; bottom:0; height:16px; display:flex; }
+.stripe b{ flex:1; }
+.stripe b:nth-child(1){ background:var(--sangria); }
+.stripe b:nth-child(2){ background:var(--amarelo); }
+.stripe b:nth-child(3){ background:var(--azulejo); }
+.stripe b:nth-child(4){ background:var(--manjerico); }
+</style></head>
+<body><div class="card">
+  <img class="mark" src="../../web/static/favicon.svg" alt="">
+  <div class="poster"><span>Onde Vai Parar</span></div>
+  <p class="sub">Quem recebe o dinheiro das câmaras municipais portuguesas, e com qual procedimento.</p>
+  <p class="src">Dados públicos do Portal BASE / IMPIC</p>
+  <div class="stripe"><b></b><b></b><b></b><b></b></div>
+</div></body></html>

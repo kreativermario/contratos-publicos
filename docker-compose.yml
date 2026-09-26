@@ -81,6 +81,8 @@ services:
       NGINX_API_BURST: ${NGINX_API_BURST:-60}
       NGINX_COMPANY_RATE: ${NGINX_COMPANY_RATE:-30r/m}
       NGINX_COMPANY_BURST: ${NGINX_COMPANY_BURST:-15}
+      NGINX_CACHE_SIZE: ${NGINX_CACHE_SIZE:-64m}
+      NGINX_CACHE_TTL: ${NGINX_CACHE_TTL:-1h}
     tmpfs:
       # tmpfs mounts default to root ownership; nginx runs as uid 101, so each
       # one it must write to needs the owner set explicitly.
