@@ -100,6 +100,28 @@ def newcomer_verdict(first_seen, first_win, dataset_start, newcomer_days: int,
     return (first_win - first_seen).days <= newcomer_days
 
 
+def _looks_like_camara():
+    r"""A deliberately loose SQL prefilter, refined in Python by `is_camara`.
+
+    Filtering only in Python was correct and useless: Postgres still grouped all
+    5975 national buyers and ran a sort-based mode() over the whole contracts
+    table before anything was discarded, a measured 19s. This cuts the scan to
+    the rows that could possibly be a câmara before the aggregate runs.
+
+    It must be a SUPERSET of is_camara and never an equal: the exact rule keeps
+    living in one place, in core, and this is only allowed to be cheap. Hence no
+    word boundary and no trailing space: "Município-de-X" passes is_camara and
+    would have been dropped silently by a pattern that demanded one, and a
+    superset that is slightly too wide costs a row the Python filter then
+    rejects, while one that is too narrow loses a município. `_` matches the
+    one character that varies between "Município"/"Municipio" and
+    "Câmara"/"Camara", and TRIM covers a name the register padded. A Postgres regex would spell a word boundary \y, not \b,
+    which is the same trap as BSD sed's missing \b.
+    """
+    name = func.trim(Contract.buyer_name)
+    return or_(name.ilike("Munic_pio%"), name.ilike("C_mara Municipal%"))
+
+
 # IMPIC spells the same buyer several ways ("Município da Amadora", "Municipio
 # da Amadora", "Município de Amadora"), so grouping by name as well as NIF split
 # one municipality into several rows, each holding part of its contracts. The
@@ -168,7 +190,7 @@ class MunicipalityRepository:
                 func.min(Contract.signed_date).label("since"),
                 func.max(Contract.signed_date).label("latest"),
             )
-            .where(Contract.buyer_nif.is_not(None))
+            .where(Contract.buyer_nif.is_not(None), _looks_like_camara())
             .group_by(Contract.buyer_nif)
             .order_by(func.sum(Contract.value).desc().nulls_last())
         )

@@ -55,6 +55,20 @@
 	let q = $state('');
 	const fold = (s: string) =>
 		s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+	// A page at a time. 308 cards is a long scroll on a phone and every one of
+	// them is an anchor SvelteKit will preload on hover, so rendering the lot up
+	// front costs both layout and a pile of speculative fetches.
+	//
+	// The sentinel pulls the next page in on scroll, which is the seamless half;
+	// after AUTO_PAGES it stops and waits for a click, so the reader who is
+	// actually scrolling to the bottom of the alphabet is never fighting a list
+	// that grows faster than they can read it. Same shape as ContractsTable.
+	const PAGE = 60;
+	const AUTO_PAGES = 4;
+	let shown = $state(PAGE);
+	let autoPages = $state(0);
+	const canAuto = $derived(autoPages < AUTO_PAGES);
+
 	const found = $derived.by(() => {
 		const term = fold(q.trim());
 		const rows = term
@@ -64,6 +78,35 @@
 		// reader scanning for their own concelho needs the order their eye
 		// already assumes. The spend ranking lives on the panorama.
 		return [...rows].sort(byShortName);
+	});
+
+	// Typing is a new list, so it starts at the top again. Reading `q` is what
+	// subscribes this effect; `found.length` would re-run it on every keystroke
+	// that happened to leave the count alone.
+	$effect(() => {
+		q;
+		shown = PAGE;
+		autoPages = 0;
+	});
+
+	const visible = $derived(found.slice(0, shown));
+	const more = $derived(found.length > shown);
+
+	function loadMore() {
+		autoPages += 1;
+		shown += PAGE;
+	}
+
+	let sentinel = $state<HTMLDivElement | undefined>();
+	$effect(() => {
+		const el = sentinel;
+		if (!el || !more) return;
+		const io = new IntersectionObserver(
+			(entries) => { if (entries.some((e) => e.isIntersecting) && canAuto) loadMore(); },
+			{ rootMargin: '600px 0px' }
+		);
+		io.observe(el);
+		return () => io.disconnect();
 	});
 
 	/* ---- geometry: only the two tabs that need it pay for it ----------- */
@@ -239,13 +282,21 @@
 				</label>
 				{#if found.length}
 					<ul class="grid">
-						{#each found as m (m.nif)}
+						{#each visible as m (m.nif)}
 							<li><a class="mcard lift" href={L(`/municipio/${encodeURIComponent(m.nif)}`)}>
 								<b>{short(m)}</b>
 								<span>{num(m.contracts)} {t('common.contracts')}</span>
 							</a></li>
 						{/each}
 					</ul>
+					<div bind:this={sentinel} class="more">
+						{#if more}
+							<button class="lift" onclick={loadMore}>{t('common.loadMore')}</button>
+							<p class="hint">{t('tbl.showingOf', { shown: num(visible.length), total: num(found.length) })}</p>
+						{:else}
+							<p class="hint">{t('tbl.showingOf', { shown: num(visible.length), total: num(found.length) })}</p>
+						{/if}
+					</div>
 				{:else}
 					<p class="none">{t('landing.noMatch')}</p>
 				{/if}
@@ -400,19 +451,7 @@
 		   its card taller than its neighbours */
 		grid-auto-rows: 1fr; gap: .5rem;
 	}
-	.grid li {
-		margin: 0; display: flex;
-		/* 308 cards, and the reader sees eight. content-visibility lets the
-		   browser skip layout and paint for the rows that are off screen, which
-		   is what pagination would buy, without what pagination would cost: the
-		   anchors all stay in the DOM, so the crawl path from the homepage to
-		   every /municipio/<nif> survives. That path is the whole reason these
-		   are anchors and not buttons (see below). `auto` in the intrinsic size
-		   means the real height is remembered once a card has been rendered, so
-		   the scrollbar stops resizing after the first pass. */
-		content-visibility: auto;
-		contain-intrinsic-size: auto 72px;
-	}
+	.grid li { margin: 0; display: flex; }
 	/* An anchor, not a button, and that is the whole of this site's SEO problem
 	   in one element: a crawler follows an href and cannot follow an onclick, so
 	   while these were buttons there was no path from the homepage to any
@@ -427,6 +466,16 @@
 		background: var(--paper); color: var(--ink); text-decoration: none;
 	}
 	.mcard:hover { background: var(--amarelo); color: var(--ink); text-decoration: none; }
+
+	.more { display: flex; flex-direction: column; align-items: center; gap: .4rem;
+		padding: 1.25rem 0 .25rem; }
+	.more button {
+		font: inherit; font-weight: 700; font-size: .88rem; cursor: pointer;
+		color: var(--ink); background: var(--paper-2); border: 2px solid var(--ink);
+		border-radius: var(--radius); box-shadow: var(--shadow-hard); padding: .5rem 1.1rem;
+	}
+	.more button:hover { background: var(--amarelo); }
+	.more .hint { margin: 0; font-size: .8rem; color: var(--ink-soft); }
 	.mcard b { font-family: 'Bowlby One', 'Archivo Black', Impact, sans-serif; font-weight: 400; font-size: 1.02rem; text-transform: uppercase; }
 	.mcard span { font-size: .76rem; font-weight: 600; color: var(--ink-soft); }
 
