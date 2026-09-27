@@ -19,6 +19,17 @@ class Base(DeclarativeBase):
     pass
 
 
+#: Indexes that were in production and no longer belong. There is no shell on
+#: the box, so the only way one ever leaves is by name, here, dropped in the
+#: same migrate one-shot that adds the new ones. Explicit rather than "anything
+#: the ORM does not declare": that rule would quietly drop an index somebody
+#: added by hand to get out of an incident.
+RETIRED_INDEXES: tuple[str, ...] = (
+    "ix_contracts_buyer",          # superseded by ix_contracts_buyer_cover
+    "ix_contracts_buyer_summary",  # ranged on signed_date but only INCLUDEd it
+)
+
+
 class Contract(Base):
     __tablename__ = "contracts"
 
@@ -54,16 +65,24 @@ class Contract(Base):
         back_populates="contract", cascade="all, delete-orphan")
 
     __table_args__ = (
-        Index("ix_contracts_buyer", "buyer_nif", "signed_date"),
-        # The municipality list and both rankings ask the same question: per
-        # buyer, how many contracts, how much money, first and last date, and
-        # the most common spelling of the name. Nationally that meant a seq scan
-        # of every column of every contract to answer with 308 rows, measured at
-        # 18.8s. INCLUDE carries the four columns the aggregate reads into the
-        # index itself, so it is an index-only scan over a structure a fraction
-        # of the heap's width, already ordered by the GROUP BY key.
-        Index("ix_contracts_buyer_summary", "buyer_nif",
-              postgresql_include=["buyer_name", "value", "signed_date"]),
+        # One index for the two shapes the whole site asks for, and the key
+        # order is the entire point.
+        #
+        # The summary (município list, both rankings) groups by buyer_nif and
+        # reads buyer_name, value and signed_date. The mandate join matches
+        # buyer_nif AND a signed_date range, once per mandate. Putting
+        # signed_date in the KEY serves both: the range join gets a real index
+        # range, and the summary still gets an index-only scan because INCLUDE
+        # carries the rest.
+        #
+        # An earlier version left signed_date out of the key and only INCLUDEd
+        # it. That is covering but not ordered, so the planner could prefer it
+        # and then satisfy `signed_date >= term_start` by filtering every row of
+        # the buyer instead of seeking. /rankings/* went from 11.5s to over 60s,
+        # which is nginx's proxy_read_timeout, so readers got the 5xx page and
+        # nothing was ever cached. Never INCLUDE a column the query ranges on.
+        Index("ix_contracts_buyer_cover", "buyer_nif", "signed_date",
+              postgresql_include=["buyer_name", "value"]),
         Index("ix_contracts_year", "year"),
         Index("ix_contracts_procedure", "procedure"),
         Index("ix_contracts_cpv", "cpv"),

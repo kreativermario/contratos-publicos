@@ -675,7 +675,11 @@ the amount and the unit separately; the unit goes in a `.unit` span (Archivo
   500ing every request that read them. `Database.create_all` now follows it with
   `add_missing_columns`, so the `migrate` one-shot the prod stack already runs
   ahead of the API brings columns up too, and there is no server to log into.
-  `add_missing_indexes` is the same idea for the same reason: `create_all`
+  `drop_retired_indexes` is the other half, and it drops **by name** from
+  `RETIRED_INDEXES` rather than dropping anything the ORM no longer declares,
+  because that rule would quietly remove an index somebody added by hand during
+  an incident. It runs after the creates, so there is never a window with
+  neither. `add_missing_indexes` is the same idea for the same reason: `create_all`
   builds a table's indexes when it builds the table and does nothing for one
   added later, so `ix_contracts_buyer_summary` would never have existed in
   production. It is **not** `CONCURRENTLY`, because that cannot run in a
@@ -713,6 +717,18 @@ the amount and the unit separately; the unit goes in a `.unit` span (Archivo
   picked up `display: grid` from the indices wrapper of the same name, and one
   carrying `verdict` picked up its 1rem padding. Modifier classes on small
   components need their own prefix.
+- **Never INCLUDE a column the query ranges on.** `ix_contracts_buyer_cover` is
+  `(buyer_nif, signed_date) INCLUDE (buyer_name, value)` and the key order is
+  the whole of it. An earlier version keyed on `buyer_nif` alone and INCLUDEd
+  `signed_date`, which is covering but unordered: `_per_mandate_era` joins on
+  `buyer_nif` **and a `signed_date` range**, so the range stopped being a seek
+  and became a filter over every contract of that buyer. `/rankings/districts`
+  and `/rankings/parties` went from 11.5s to past nginx's `proxy_read_timeout`,
+  and a request killed at the timeout produces no response to cache, so every
+  subsequent reader paid the same 60s and failed the same way. A slow endpoint
+  whose cache can never fill is a permanently dead one, which is why that
+  timeout is now `NGINX_API_TIMEOUT` and generous: better the first reader
+  waits than that nobody is ever served.
 - **A supplier is a NIF, not a name.** The record spells one firm several ways:
   EDP appears six times in Loures, Uniself three. Grouping by name split one
   company into several, which deflated HHI and top-supplier, inflated the

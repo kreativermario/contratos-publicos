@@ -8,7 +8,7 @@ from sqlalchemy import Column, Engine, Table, create_engine, inspect, text
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.schema import CreateColumn, CreateIndex
 
-from .models import Base
+from .models import RETIRED_INDEXES, Base
 from .settings import Settings
 
 
@@ -72,6 +72,7 @@ class Database:
         Base.metadata.create_all(self.engine)
         self.add_missing_columns()
         self.add_missing_indexes()
+        self.drop_retired_indexes()
 
     def add_missing_columns(self) -> None:
         """ALTER TABLE ADD COLUMN for every column the ORM has and the database
@@ -117,6 +118,17 @@ class Database:
             for index in missing_indexes(table, have):
                 with self.engine.begin() as conn:
                     conn.execute(CreateIndex(index, if_not_exists=True))
+
+    def drop_retired_indexes(self) -> None:
+        """DROP INDEX IF EXISTS for every name in `RETIRED_INDEXES`.
+
+        Creating the replacement happens first, in `add_missing_indexes`, so
+        there is never a window with neither. IF EXISTS keeps this idempotent
+        on every deploy after the one that mattered.
+        """
+        for name in RETIRED_INDEXES:
+            with self.engine.begin() as conn:
+                conn.execute(text(f'DROP INDEX IF EXISTS "{name}"'))
 
     @contextmanager
     def session(self) -> Generator[Session, None, None]:

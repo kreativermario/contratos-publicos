@@ -172,7 +172,15 @@ server {
         proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_connect_timeout 5s;
-        proxy_read_timeout   60s;
+        # Not 60s. A query that takes longer than this is killed mid-flight, so
+        # the reader gets the 5xx page AND there is no response to cache, which
+        # means the next reader pays the same 60s and fails the same way: the
+        # cache can never fill, and a slow endpoint is a permanently dead one.
+        # That is exactly how /rankings/* went down. Better that the first
+        # reader waits and everybody after them is served from the cache in
+        # milliseconds. It is a ceiling, not a target; the fix for a genuinely
+        # slow query is the query.
+        proxy_read_timeout   ${NGINX_API_TIMEOUT};
         proxy_buffering on;
         # only for a dead upstream: a 404 from the API is JSON and must stay JSON
         proxy_intercept_errors off;

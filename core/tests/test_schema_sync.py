@@ -7,7 +7,7 @@ The decision of what may be added in place is pure, so it is tested here; the
 ALTER itself is two lines around it.
 """
 from contratos_core.db import missing_columns, missing_indexes, unaddable
-from contratos_core.models import Base, CompanyProfile, Contract
+from contratos_core.models import RETIRED_INDEXES, Base, CompanyProfile, Contract
 from sqlalchemy import Column, Integer, String, Text
 
 
@@ -64,20 +64,49 @@ def test_an_index_added_to_an_existing_table_is_reported():
     """`create_all` builds a table's indexes with the table and never after.
 
     So an index added to the ORM later is invisible to it, exactly as a column
-    was. The summary index is the one that made this matter: without it the
+    was. The buyer cover index is the one that made this matter: without it the
     município list seq-scanned the national contracts table for 18.8s.
     """
     table = Contract.__table__
-    have = {i.name for i in table.indexes} - {"ix_contracts_buyer_summary"}
-    assert [i.name for i in missing_indexes(table, have)] == ["ix_contracts_buyer_summary"]
+    have = {i.name for i in table.indexes} - {"ix_contracts_buyer_cover"}
+    assert [i.name for i in missing_indexes(table, have)] == ["ix_contracts_buyer_cover"]
 
 
-def test_the_summary_index_covers_what_the_aggregate_reads():
-    """An index-only scan needs every column the query touches to be in the
-    index. Drop one from INCLUDE and Postgres goes back to the heap, silently,
-    and the 18.8s comes back."""
-    index = next(i for i in Contract.__table__.indexes
-                 if i.name == "ix_contracts_buyer_summary")
-    assert [c.name for c in index.columns] == ["buyer_nif"]
-    assert set(index.dialect_options["postgresql"]["include"]) == {
-        "buyer_name", "value", "signed_date"}
+def _cover():
+    return next(i for i in Contract.__table__.indexes
+                if i.name == "ix_contracts_buyer_cover")
+
+
+def test_the_cover_index_ranges_on_a_key_column_not_an_include():
+    """The regression this index exists to prevent, and it took the site down.
+
+    `_per_mandate_era` joins on buyer_nif AND a signed_date range. An earlier
+    version had signed_date only in INCLUDE: covering, but unordered, so the
+    range stopped being a seek and became a filter over every row of the buyer.
+    /rankings/* went from 11.5s to past nginx's 60s timeout, which means the
+    reader got the 5xx page and nothing was ever cached. A column a query
+    RANGES on belongs in the key; INCLUDE is only for columns it reads.
+    """
+    assert [c.name for c in _cover().columns] == ["buyer_nif", "signed_date"]
+
+
+def test_the_cover_index_carries_what_the_summary_reads():
+    """An index-only scan needs every column the query touches. Drop one from
+    INCLUDE and Postgres silently returns to the heap, and the 18.8s comes
+    back with no error to tell anybody."""
+    assert set(_cover().dialect_options["postgresql"]["include"]) == {"buyer_name", "value"}
+
+
+def test_the_indexes_it_replaced_are_retired_by_name():
+    """There is no shell on the box, so a superseded index only leaves if it is
+    named here. Both of these are on the live database right now."""
+    assert "ix_contracts_buyer" in RETIRED_INDEXES
+    assert "ix_contracts_buyer_summary" in RETIRED_INDEXES
+
+
+def test_nothing_still_declared_is_also_retired():
+    """The one way this list can do damage: drop an index the ORM still wants.
+    add_missing_indexes creates it and drop_retired_indexes then removes it,
+    every deploy, forever."""
+    declared = {i.name for t in Base.metadata.sorted_tables for i in t.indexes}
+    assert declared.isdisjoint(RETIRED_INDEXES)
