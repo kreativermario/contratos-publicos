@@ -235,7 +235,7 @@ services:
       NGINX_COMPANY_BURST: ${NGINX_COMPANY_BURST:-15}
       # The API cache lives on the /var/cache/nginx tmpfs below, so this is RAM
       # and it counts against mem_limit. Raise both together or neither.
-      NGINX_API_TIMEOUT: ${NGINX_API_TIMEOUT:-180s}
+      NGINX_API_TIMEOUT: ${NGINX_API_TIMEOUT:-300s}
       NGINX_CACHE_SIZE: ${NGINX_CACHE_SIZE:-64m}
       NGINX_CACHE_TTL: ${NGINX_CACHE_TTL:-1h}
     tmpfs:
@@ -374,12 +374,20 @@ services:
     <<: *hardening
     image: ${INGEST_IMAGE}
     mem_limit: ${MEM_INGEST_BULK:-640m}
-    # Runs on start, THEN sleeps. That costs a re-download of the year files on
-    # every deploy (nothing caches them, roughly five minutes in the background),
-    # and buys two things worth more: a fresh stack seeds itself with no manual
-    # step, and `podman restart <stack>_ingest-bulk_1` becomes the manual
-    # "ingest now" button. It gates nothing, since api does not depend on it.
-    # Same ponytail ceiling as ingest-delta above.
+    # Runs when it is DUE, not on every start, and that distinction was learned
+    # the hard way. "Run on start, then sleep a week" means every deploy kicks
+    # off a full national re-ingest: eight deploys in two days is eight
+    # concurrent-ish re-ingests of the whole country, and the database is never
+    # quiet enough to answer a page. /rankings/* timed out for a day partly
+    # because of this, and every attempt to measure whether a fix had worked
+    # was taken against a box that was mid-bulk-load because of the deploy that
+    # delivered the fix.
+    #
+    # The stamp is an epoch in a file on the named volume, so it survives the
+    # container. The loop now polls hourly and the interval decides, which
+    # keeps both of the things the old shape was for: a fresh stack still seeds
+    # itself (no stamp, so it is due), and deleting /data/.bulk-stamp is still
+    # the manual "ingest now" button. Same ponytail ceiling as ingest-delta.
     #
     # Three sources, not one. `entities` and `mandatos` had no loop anywhere in
     # the stack and no step in the deploy, so on a database that had never been
@@ -401,7 +409,20 @@ services:
     # fetch a week against a fresh stack that seeds itself.
     entrypoint: ["/bin/sh", "-c"]
     command:
-      - "while :; do python -m contratos_ingest impic || true; python -m contratos_ingest entities || true; python -m contratos_ingest mandatos || true; sleep ${INGEST_BULK_INTERVAL:-604800}; done"
+      - >-
+        while :; do
+        now=$$(date +%s);
+        last=$$(cat /data/.bulk-stamp 2>/dev/null || echo 0);
+        if [ $$((now - last)) -ge ${INGEST_BULK_INTERVAL:-604800} ]; then
+        python -m contratos_ingest impic || true;
+        python -m contratos_ingest entities || true;
+        python -m contratos_ingest mandatos || true;
+        date +%s > /data/.bulk-stamp;
+        else
+        echo "bulk: last run $$((now - last))s ago, not due yet";
+        fi;
+        sleep ${INGEST_BULK_POLL:-3600};
+        done
     user: "10001:10001"
     environment: *appenv
     depends_on:

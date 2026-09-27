@@ -717,6 +717,20 @@ the amount and the unit separately; the unit goes in a `.unit` span (Archivo
   picked up `display: grid` from the indices wrapper of the same name, and one
   carrying `verdict` picked up its 1rem padding. Modifier classes on small
   components need their own prefix.
+- **`ingest-bulk` runs when it is DUE, not on every container start.** The old
+  shape was "run, then sleep a week", which means every deploy kicks off a full
+  national re-ingest. Eight deploys in two days is eight re-ingests, the
+  database is never quiet, and worse, every measurement of whether a fix helped
+  is taken against a box that is mid-bulk-load *because of the deploy that
+  delivered the fix*. The stamp is an epoch in `/data/.bulk-stamp` on the named
+  volume; deleting it is still the manual "ingest now" button, and a fresh
+  stack still seeds itself because it has no stamp.
+- **Cloudflare gives up on an origin at about 100s, before nginx does.** So
+  `NGINX_API_TIMEOUT` past that changes nothing a reader sees: they get a 524
+  either way. What it does change is whether the in-stack warmer
+  (`api/contratos_api/warm.py`) can finish and leave an answer in the cache,
+  which is the only reason `/rankings/*` is reachable at all today. A reader
+  never waits for these; they either HIT or they fail.
 - **Never INCLUDE a column the query ranges on.** `ix_contracts_buyer_cover` is
   `(buyer_nif, signed_date) INCLUDE (buyer_name, value)` and the key order is
   the whole of it. An earlier version keyed on `buyer_nif` alone and INCLUDEd
