@@ -123,6 +123,12 @@ class Ingestor:
             self.mandatos()
         if command in ("delta", "all"):
             self.delta()
+        # Every pass above writes, and a bulk load moves the row count by
+        # enough that the planner's old statistics stop describing the table.
+        # Left to autovacuum this lagged by long enough to take /rankings/*
+        # past Cloudflare's timeout. Seconds here, so it is unconditional.
+        log.info("analyze: refreshing planner statistics")
+        self.db.analyze()
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -73,6 +73,9 @@ class Database:
         self.add_missing_columns()
         self.add_missing_indexes()
         self.drop_retired_indexes()
+        # A new index has no statistics until something asks for them, and the
+        # deploy that adds one is exactly when the planner must not guess.
+        self.analyze()
 
     def add_missing_columns(self) -> None:
         """ALTER TABLE ADD COLUMN for every column the ORM has and the database
@@ -129,6 +132,23 @@ class Database:
         for name in RETIRED_INDEXES:
             with self.engine.begin() as conn:
                 conn.execute(text(f'DROP INDEX IF EXISTS "{name}"'))
+
+    def analyze(self) -> None:
+        """Refresh the planner's statistics for every ORM table.
+
+        Nothing here did this, and the contracts table doubled in a night. The
+        planner then chooses from row counts that predate the load, which is how
+        a correct index gets passed over: `/rankings/*` was picking a plan sized
+        for a table half as big and taking over 100s, which is past Cloudflare's
+        own limit, so readers got a 524 no matter what nginx allowed.
+
+        Cheap enough to run on every deploy and after every ingest pass, which
+        is the point: it must not be a thing somebody remembers to do. ANALYZE
+        is allowed inside a transaction, unlike VACUUM.
+        """
+        for table in Base.metadata.sorted_tables:
+            with self.engine.begin() as conn:
+                conn.execute(text(f'ANALYZE "{table.name}"'))
 
     @contextmanager
     def session(self) -> Generator[Session, None, None]:
