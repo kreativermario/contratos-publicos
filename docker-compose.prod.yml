@@ -338,6 +338,38 @@ services:
       migrate: {condition: service_completed_successfully}
     tmpfs: ["/tmp"]
 
+  # The cache warmer. See api/contratos_api/warm.py for why this exists and
+  # when to delete it.
+  #
+  # It talks to `web`, not to `api`, and that is the whole point: the entry has
+  # to land in nginx's cache, which is what a reader reads. Going straight to
+  # the API would warm nothing.
+  #
+  # It also never leaves the stack network, so it is not subject to
+  # Cloudflare's ~100s ceiling on an origin response. That ceiling is why
+  # /rankings/* could not serve at all: the reader's request was killed before
+  # nginx had a response to store, so the cache could never fill and every
+  # reader repeated the same two-minute failure.
+  #
+  # Interval under the cache TTL, or the entry expires before it is refreshed
+  # and a reader finds a cold cache anyway. `proxy_cache_use_stale updating`
+  # covers the gap in between.
+  warm:
+    <<: *hardening
+    image: ${API_IMAGE}
+    mem_limit: ${MEM_WARM:-128m}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - "while :; do python -m contratos_api.warm || true; sleep ${WARM_INTERVAL:-1800}; done"
+    user: "10001:10001"
+    environment:
+      <<: *appenv
+      WARM_TARGET: ${WARM_TARGET:-http://web:8080}
+      WARM_TIMEOUT: ${WARM_TIMEOUT:-300}
+    depends_on:
+      web: {condition: service_healthy}
+    tmpfs: ["/tmp"]
+
   ingest-bulk:
     <<: *hardening
     image: ${INGEST_IMAGE}
