@@ -404,24 +404,37 @@ button { font: inherit; }
 /* Skeletons: a placeholder holds the space its content will take, so nothing
    on the page jumps when the data lands. Plain tinted bars inside a card, the
    card already carries the ink border and the hard shadow. */
+/* The sweep moves a pseudo-element with transform, never background-position:
+   a transform runs on the compositor, while animating the background repainted
+   every bar on every frame and stuttered as soon as the main thread was busy,
+   which is exactly when a skeleton is on screen. Linear, and fully off both
+   edges, so the loop has no visible seam: the old percentages left the
+   highlight half-visible at each end and it jumped back on every restart.
+   The idle pause is built into the keyframes so each pass reads as one. */
 @keyframes sk-sweep {
-	from { background-position: 150% 0; }
-	to   { background-position: -50% 0; }
+	0%        { transform: translateX(-100%); }
+	70%, 100% { transform: translateX(100%); }
 }
 
 .sk {
+	position: relative;
 	display: block;
 	max-width: 100%;
+	overflow: hidden;
 	border-radius: var(--radius);
 	background-color: var(--paper-3);
-	background-image: linear-gradient(90deg,
-		rgba(255, 252, 239, 0) 0%, rgba(255, 252, 239, .9) 50%, rgba(255, 252, 239, 0) 100%);
-	background-size: 60% 100%;
-	background-repeat: no-repeat;
-	animation: sk-sweep 1.4s ease-in-out infinite;
+}
+.sk::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	background: linear-gradient(90deg,
+		rgba(255, 252, 239, 0) 0%, rgba(255, 252, 239, .85) 50%, rgba(255, 252, 239, 0) 100%);
+	transform: translateX(-100%);
+	animation: sk-sweep 1.6s linear infinite;
 }
 
 /* no sweep for anyone who asked for less motion: a flat tinted block instead */
 @media (prefers-reduced-motion: reduce) {
-	.sk { animation: none; background-image: none; }
+	.sk::after { animation: none; display: none; }
 }

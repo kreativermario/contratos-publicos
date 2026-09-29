@@ -178,7 +178,7 @@
 						<td colspan="4" class="wide" data-label={t('tbl.contracts')}>
 							{#if openBusy}
 								<ul class="ghost" aria-hidden="true">
-									{#each [0, 1, 2, 3] as i (i)}<li><span class="g wide"></span><span class="g short"></span></li>{/each}
+									{#each [0, 1, 2, 3] as i (i)}<li><span class="sk g"></span><span class="sk g short"></span></li>{/each}
 								</ul>
 								<p class="sr">{t('tbl.loadingContracts')}</p>
 							{:else if openRows.length}
@@ -271,12 +271,9 @@
 	/* a skeleton, so an expanding row does not snap open empty then reflow */
 	.ghost { list-style: none; margin: 0; padding: 0; display: grid; gap: .55rem; }
 	.ghost li { display: grid; grid-template-columns: 1fr 8rem; gap: .9rem; }
-	.g { display: block; height: .82rem; border-radius: 99px; background: var(--paper-3);
-		background-image: linear-gradient(90deg, transparent 0%, rgba(255,255,255,.75) 50%, transparent 100%);
-		background-size: 200% 100%; animation: sweep 1.4s linear infinite; }
+	/* the shimmer is the shared .sk in app.css; only the shape is local */
+	.g { height: .82rem; border-radius: 99px; }
 	.g.short { justify-self: end; width: 100%; }
-	@keyframes sweep { from { background-position: 200% 0; } to { background-position: -200% 0; } }
-	@media (prefers-reduced-motion: reduce) { .g { animation: none; } }
 
 	.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 

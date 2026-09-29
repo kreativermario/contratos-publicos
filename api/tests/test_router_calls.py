@@ -75,3 +75,17 @@ def test_every_router_call_fits_its_repository_method():
 def _calls_all():
     for path in sorted(ROUTERS.glob("*.py")):
         yield from _calls(path)
+
+
+def test_the_supplier_id_index_matches_the_expression_the_queries_filter_on():
+    """Postgres only uses an expression index for the same expression. If
+    `_supplier_id()` ever changes shape and the index does not, every município
+    page goes back to scanning the national supplier table, and nothing fails."""
+    from contratos_api.repositories import _supplier_id
+    from contratos_core.models import ContractSupplier
+    from sqlalchemy.dialects import postgresql
+
+    index = next(i for i in ContractSupplier.__table__.indexes if i.name == "ix_suppliers_sid")
+    indexed = str(index.expressions[0]).replace(" ", "")
+    queried = str(_supplier_id().compile(dialect=postgresql.dialect())).replace(" ", "")
+    assert queried.replace("contract_suppliers.", "") == indexed

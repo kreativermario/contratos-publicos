@@ -83,6 +83,10 @@ class Contract(Base):
         # nothing was ever cached. Never INCLUDE a column the query ranges on.
         Index("ix_contracts_buyer_cover", "buyer_nif", "signed_date",
               postgresql_include=["buyer_name", "value"]),
+        # min(signed_date) over the whole table is the dataset start, which the
+        # newcomer rule reads on every score, supplier list and contract page.
+        # Without this it was a sequential scan of the national table each time.
+        Index("ix_contracts_signed_date", "signed_date"),
         Index("ix_contracts_year", "year"),
         Index("ix_contracts_procedure", "procedure"),
         Index("ix_contracts_cpv", "cpv"),
@@ -102,7 +106,14 @@ class ContractSupplier(Base):
     nif: Mapped[str | None] = mapped_column(String(20))
 
     contract: Mapped[Contract] = relationship(back_populates="suppliers")
-    __table_args__ = (Index("ix_suppliers_nif", "nif"), Index("ix_suppliers_name", "name"))
+    # ix_suppliers_sid is `_supplier_id()` in the API, what counts as one firm.
+    # Every debut lookup filters `coalesce(nif, name) IN (...)`, which neither
+    # single-column index can serve, so /score, /suppliers and /contracts each
+    # scanned the whole national table: 10 to 30s per município page, on every
+    # cache miss. The expression has to stay identical to `_supplier_id()` or
+    # the planner will not match it.
+    __table_args__ = (Index("ix_suppliers_nif", "nif"), Index("ix_suppliers_name", "name"),
+                      Index("ix_suppliers_sid", text("coalesce(nif, name)")))
 
 
 class ContractBidder(Base):

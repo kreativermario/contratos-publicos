@@ -6,7 +6,7 @@ import type { PageLoad } from './$types';
 
 /** Longest window the year picker offers. Five years of one municipality is
  *  already a wide read, and the UI has to stop somewhere it can label. */
-export const MAX_SPAN = 5;
+export const _MAX_SPAN = 5;
 
 const year = (v: string | null): number | undefined => {
 	const n = Number(v);
@@ -18,12 +18,8 @@ export const load: PageLoad = async ({ url, params, fetch: _f }) => {
 	// identifier: concelho names repeat (there are two Lagoas), so a slug would
 	// need disambiguating and would still break the moment a name is respelled.
 	const nif = params.nif;
-	// Started here, awaited with the rest below. Neither depends on the other,
-	// on the window or on the NIF, and awaiting them in sequence cost the page
-	// two round trips before the first byte of its own data was even asked for.
-	// SvelteKit blocks the navigation for all of it, so that wait is time the
-	// reader spends looking at the previous page with nothing to say it heard
-	// the click.
+	// Started first: neither depends on the window or on the NIF, and asking
+	// for them in sequence cost two round trips before the page's own data.
 	const municipalitiesP = api<Municipality[]>('/municipalities');
 	// The legal forms the filter can offer. Served rather than listed here, so
 	// the dropdown can only ever contain values the query actually matches.
@@ -37,7 +33,7 @@ export const load: PageLoad = async ({ url, params, fetch: _f }) => {
 	let yearFrom = year(url.searchParams.get('from'));
 	let yearTo = year(url.searchParams.get('to'));
 	if (yearFrom && yearTo && yearFrom > yearTo) [yearFrom, yearTo] = [yearTo, yearFrom];
-	if (yearFrom && yearTo && yearTo - yearFrom + 1 > MAX_SPAN) yearFrom = yearTo - MAX_SPAN + 1;
+	if (yearFrom && yearTo && yearTo - yearFrom + 1 > _MAX_SPAN) yearFrom = yearTo - _MAX_SPAN + 1;
 
 	// A mandate is not a run of years: it starts on election day, in late
 	// September or October, so filtering a term by year dragged in the previous
@@ -49,8 +45,21 @@ export const load: PageLoad = async ({ url, params, fetch: _f }) => {
 		? { date_from: dateFrom, date_to: dateTo }
 		: { year_from: yearFrom, year_to: yearTo };
 
-	const [municipalities, legalForms,
-	       score, suppliers, rivals, contracts, cells, stats, mandates] = await Promise.all([
+	// Nothing is awaited. SvelteKit blocks the navigation on everything a load
+	// awaits, and on a cache miss these took up to half a minute between them,
+	// all of it spent looking at the previous page. Returned as one promise,
+	// the page paints its skeleton at once and fills in when the data lands.
+	const rest = fetchAll(nif, win, municipalitiesP, legalFormsP);
+	// Attached here so a reader who navigates away before it settles does not
+	// leave an unhandled rejection behind; the page reads the error itself.
+	rest.catch(() => {});
+
+	return { nif, rest, yearFrom, yearTo, dateFrom, dateTo };
+};
+
+function fetchAll(nif: string, win: Record<string, unknown>,
+                  municipalitiesP: Promise<Municipality[]>, legalFormsP: Promise<string[]>) {
+	return Promise.all([
 		municipalitiesP,
 		legalFormsP,
 		api<Score>(`/municipalities/${nif}/score`, win),
@@ -62,12 +71,14 @@ export const load: PageLoad = async ({ url, params, fetch: _f }) => {
 		// Not year-filtered on purpose: the timeline is the whole run of terms.
 		// A miss is survivable, the rest of the page does not depend on it.
 		api<Mandate[]>(`/municipalities/${nif}/mandates`).catch(() => [] as Mandate[])
-	]);
-
-	return {
-		nif,
+	]).then(([municipalities, legalForms,
+	          score, suppliers, rivals, contracts, cells, stats, mandates]) => ({
 		current: municipalities.find((m) => m.nif === nif) ?? null,
-		municipalities, score, suppliers, rivals, contracts, cells, stats, mandates,
-		legalForms, yearFrom, yearTo, dateFrom, dateTo
-	};
+		municipalities, score, suppliers, rivals, contracts, cells, stats, mandates, legalForms
+	}));
+}
+
+/** What `Municipio.svelte` renders: the window plus everything `rest` resolved to. */
+export type Loaded = Awaited<ReturnType<typeof fetchAll>> & {
+	nif: string; yearFrom?: number; yearTo?: number; dateFrom?: string; dateTo?: string;
 };
