@@ -905,10 +905,21 @@ soon as the containers exist, which says nothing about whether the API can reach
 the database, and without the gate a broken rollout reports success and the
 first person to find out is a reader.
 
-Deploys fire on **`main` only**, plus `workflow_dispatch`. Secrets and non-secret
-vars both live in the GitHub `production` Environment; the non-secret half
+Deploys fire on **`main` only**, plus `workflow_dispatch`. Each box is one GitHub
+Environment holding its secrets and non-secret vars; the non-secret half
 arrives as one block in `vars.APP_ENV`, so adding a tunable is a UI edit rather
 than a change to the workflow.
+
+**Which boxes get deployed is the repository variable `DEPLOY_TARGETS`**, a JSON
+list of Environment names (`["production"]` when unset), fanned out as a matrix
+with `fail-fast: false`. Today that is `production` (the OVH VPS) and `homelab`
+(apps01, alone on a DMZ VLAN). apps01 runs no NetBird agent, because the DMZ
+cannot reach the management server; it is a network resource behind the homelab
+routing peers, so its `DEPLOY_HOST` is its LAN address, not a `100.x` one. It is
+bootstrapped by the same script as the VPS, with the sections the homelab's own
+Ansible already owns switched off. Adding a box is an Environment plus a list
+entry. Two boxes must not share a tunnel token or a nif.pt key: the first
+splits readers across two databases, the second halves the daily quota.
 
 `restart: always`, not `unless-stopped`. Podman has no daemon watching restart
 policies: containers come back after a reboot because `podman-restart.service`

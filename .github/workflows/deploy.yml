@@ -8,10 +8,17 @@ name: Deploy
 # No build agent, no registry mirror, no orchestrator on the box. Deploying is:
 # copy two files, pull three pinned tags, `podman compose up -d`.
 #
-# One VPS means one environment. `production` is a GitHub Environment and holds
-# every value used below: secrets for the four real credentials, vars for the
-# rest. The non-secret half arrives as a single block in vars.APP_ENV, so adding
-# a tunable later is a GitHub UI edit rather than a change to this file.
+# One box is one GitHub Environment, and it holds every value used below:
+# secrets for the real credentials, vars for the rest. The non-secret half
+# arrives as a single block in vars.APP_ENV, so adding a tunable later is a
+# GitHub UI edit rather than a change to this file.
+#
+# Which boxes get deployed is the repository variable DEPLOY_TARGETS, a JSON
+# list of Environment names, `["production"]` when unset. A new box (the
+# homelab's apps01, say) is a new Environment plus one entry in that list, and
+# nothing in this file. It is opt-in on purpose: an Environment named in a job
+# that does not exist yet is created EMPTY, and the job then fails on a missing
+# DEPLOY_HOST instead of saying why.
 
 on:
   push:
@@ -116,10 +123,16 @@ jobs:
           cache-to:   type=gha,scope=web,mode=max
 
   deploy:
-    name: Deploy to the VPS
+    name: Deploy to ${{ matrix.target }}
     runs-on: ubuntu-latest
     needs: build-and-push
-    environment: production
+    strategy:
+      # One box failing its health gate must not cancel a rollout already
+      # under way on another.
+      fail-fast: false
+      matrix:
+        target: ${{ fromJSON(vars.DEPLOY_TARGETS || '["production"]') }}
+    environment: ${{ matrix.target }}
     timeout-minutes: 15
     permissions:
       contents: read
