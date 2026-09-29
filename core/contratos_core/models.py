@@ -56,7 +56,12 @@ class Contract(Base):
     green: Mapped[bool | None] = mapped_column(Boolean)
     criterion: Mapped[str | None] = mapped_column(Text)
     source: Mapped[str] = mapped_column(String(16), default="impic")       # impic | apiaberta
-    raw: Mapped[dict | None] = mapped_column(JSONB)
+    # The only two fields the site ever read out of the full IMPIC record. The
+    # record itself used to sit here as `raw` JSONB, 1.4 KB of every 1.9 KB
+    # row, and made the table 4.6 GB on a box with 3.8 GB of RAM, for two
+    # links on the contract page. The bulk file is the record; keep it there.
+    link_pieces: Mapped[str | None] = mapped_column(Text)                  # linkPecasProc
+    link_announcement: Mapped[str | None] = mapped_column(Text)            # linkAnuncio
 
     suppliers: Mapped[list["ContractSupplier"]] = relationship(
         back_populates="contract", cascade="all, delete-orphan")
@@ -85,8 +90,8 @@ class Contract(Base):
         #
         # The INCLUDE list is every column the per-município aggregates read
         # (score, suppliers, stats), so they are index-only too. A contract row
-        # averages 1.9 KB, 1.4 KB of it the `raw` IMPIC record, so the heap
-        # holds about three rows a page: Odivelas's 4 634 contracts cost 3 754
+        # averaged 1.9 KB, 1.4 KB of it the `raw` IMPIC record since removed,
+        # so the heap held about three rows a page: Odivelas's 4 634 contracts cost 3 754
         # page reads and 0.9s per scan, and /score made several. `year` is
         # INCLUDEd although the year chips filter on it, which the rule above
         # forbids for a SEEK: here it only filters one buyer's few thousand

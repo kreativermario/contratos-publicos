@@ -181,7 +181,8 @@ class ImpicContractSource(ContractSource):
             "green": parse_bool(raw.get("ContratEcologico")),
             "criterion": raw.get("TipoCriterioAdjudicacao") or None,
             "source": self.name,
-            "raw": raw,
+            "link_pieces": raw.get("linkPecasProc") or None,
+            "link_announcement": raw.get("linkAnuncio") or None,
         }
         suppliers = [(contract_id, nif, name)
                      for nif, name in map(parse_entity, as_list(raw.get("adjudicatarios"))) if name]

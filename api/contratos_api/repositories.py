@@ -737,7 +737,6 @@ class MunicipalityRepository:
         c = self.session.get(Contract, contract_id)
         if not c:
             return None
-        raw = c.raw or {}
         return {
             "id": c.id,
             "object": c.object,
@@ -765,8 +764,8 @@ class MunicipalityRepository:
             "bidders": [{"name": b.name, "nif": b.nif} for b in c.bidders],
             "locations": [loc.municipality for loc in c.locations if loc.municipality],
             # The only two links the record carries. Both are often absent.
-            "link_pieces": raw.get("linkPecasProc") or None,
-            "link_announcement": raw.get("linkAnuncio") or None,
+            "link_pieces": c.link_pieces,
+            "link_announcement": c.link_announcement,
         }
 
     def _period_end(self, nif: str, year_from, year_to, date_from=None, date_to=None):

@@ -6,7 +6,6 @@ followed by an upsert. Pushing millions of rows through ORM instances is roughly
 """
 from __future__ import annotations
 
-import json
 import logging
 from collections.abc import Iterable, Iterator
 from typing import Any
@@ -22,7 +21,7 @@ CONTRACT_COLUMNS = [
     "id", "year", "procedure", "contract_types", "object", "buyer_nif", "buyer_name",
     "value", "base_price", "signed_date", "pub_date", "exec_days", "cpv", "cpv_desc",
     "n_bidders", "framework", "justification", "ad_justification", "centralized",
-    "green", "criterion", "source", "raw",
+    "green", "criterion", "source", "link_pieces", "link_announcement",
 ]
 
 CHILDREN = (
@@ -123,9 +122,7 @@ class ContractRepository:
 
     @staticmethod
     def _contract_row(contract: dict[str, Any]) -> tuple:
-        row = dict(contract)
-        row["raw"] = json.dumps(row.get("raw"), ensure_ascii=False) if row.get("raw") is not None else None
-        return tuple(row[c] for c in CONTRACT_COLUMNS)
+        return tuple(contract[c] for c in CONTRACT_COLUMNS)
 
 
 class EntityRepository:

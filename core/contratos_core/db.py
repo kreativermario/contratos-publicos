@@ -75,7 +75,7 @@ class Database:
         self.drop_retired_indexes()
         # A new index has no statistics until something asks for them, and the
         # deploy that adds one is exactly when the planner must not guess.
-        self.analyze()
+        self.vacuum_analyze()
         # The API reads the summaries and has no live fallback, so the deploy
         # that introduces them has to fill them before it starts. Afterwards
         # ingest keeps them current and this finds them populated.
@@ -166,7 +166,7 @@ class Database:
             conn.execute(text("ANALYZE supplier_debuts"))
             conn.execute(text("ANALYZE buyer_summaries"))
 
-    def analyze(self) -> None:
+    def vacuum_analyze(self) -> None:
         """Refresh the planner's statistics for every ORM table.
 
         Nothing here did this, and the contracts table doubled in a night. The
@@ -176,12 +176,18 @@ class Database:
         own limit, so readers got a 524 no matter what nginx allowed.
 
         Cheap enough to run on every deploy and after every ingest pass, which
-        is the point: it must not be a thing somebody remembers to do. ANALYZE
-        is allowed inside a transaction, unlike VACUUM.
+        is the point: it must not be a thing somebody remembers to do.
+
+        VACUUM as well, because an index-only scan is only index-only for pages
+        the visibility map marks all-visible, and every upsert clears that mark.
+        Left to autovacuum, 12% of the contracts table was unmarked two days
+        after a load and Lisbon's "index-only" scan still went to the heap for
+        1 039 rows. It skips pages already marked, so a quiet table costs little.
+        VACUUM cannot run inside a transaction, hence AUTOCOMMIT.
         """
-        for table in Base.metadata.sorted_tables:
-            with self.engine.begin() as conn:
-                conn.execute(text(f'ANALYZE "{table.name}"'))
+        with self.engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
+            for table in Base.metadata.sorted_tables:
+                conn.execute(text(f'VACUUM (ANALYZE) "{table.name}"'))
 
     @contextmanager
     def session(self) -> Generator[Session, None, None]:

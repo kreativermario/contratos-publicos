@@ -95,7 +95,8 @@ class ApiabertaSource(ContractSource):
             "green": None,
             "criterion": None,
             "source": self.name,
-            "raw": raw,
+            "link_pieces": None,
+            "link_announcement": None,
         }
         return ContractRecord(
             contract=contract,
