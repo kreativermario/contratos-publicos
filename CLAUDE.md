@@ -732,10 +732,12 @@ the amount and the unit separately; the unit goes in a `.unit` span (Archivo
   stack still seeds itself because it has no stamp.
 - **Cloudflare gives up on an origin at about 100s, before nginx does.** So
   `NGINX_API_TIMEOUT` past that changes nothing a reader sees: they get a 524
-  either way. What it does change is whether the in-stack warmer
-  (`api/contratos_api/warm.py`) can finish and leave an answer in the cache,
-  which is the only reason `/rankings/*` is reachable at all today. A reader
-  never waits for these; they either HIT or they fail.
+  either way. It was once the reason an in-stack cache warmer existed:
+  `/rankings/*` took over 100s, so only a request from inside the stack could
+  finish and leave an answer in nginx's cache. The warmer is gone because the
+  cause is: with the summary tables and `ix_contracts_buyer_scan` every
+  endpoint answers cold in under a second. If one ever needs warming again,
+  fix the query instead.
 - **Never INCLUDE a column the query ranges on.** `ix_contracts_buyer_scan` is
   `(buyer_nif, signed_date) INCLUDE (buyer_name, value, ...)` and the key order is
   the whole of it. An earlier version keyed on `buyer_nif` alone and INCLUDEd
