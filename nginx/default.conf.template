@@ -140,13 +140,24 @@ server {
     # of it at the edge. No `immutable`: unlike the bundles these keep their
     # filename when their content changes (the Bowlby One file has already been
     # re-saved once), so a year-long pin would strand readers on the old copy.
-    location ~* ^/(fonts/|pt-(?:municipios|distritos)\.geojson$|og\.png$|favicon\.svg$|apple-touch-icon\.png$) {
+    location ~* ^/(fonts/|og\.png$|favicon\.svg$|apple-touch-icon\.png$) {
         include /etc/nginx/security-headers.conf;
         add_header Cache-Control "public, max-age=604800" always;  # a week
-        # nginx's mime.types has no geojson, so the geometry went out as
-        # application/octet-stream, which gzip_types does not match: 600 KB
-        # uncompressed on every landing load instead of about 150 KB.
-        types { application/geo+json geojson; }
+        try_files $uri =404;
+    }
+
+    # The geometry, in its own location because of how `types` works. nginx's
+    # mime.types has no geojson, so it went out as application/octet-stream,
+    # which gzip_types does not match: 600 KB uncompressed on every landing
+    # load. A `types {}` block REPLACES the inherited map rather than adding to
+    # it, so declaring it in the shared location above turned the fonts, the
+    # icons and og.png into octet-stream too, and under nosniff a browser and
+    # an unfurler may refuse them. Empty map plus default_type scopes it here.
+    location ~* ^/pt-(?:municipios|distritos)\.geojson$ {
+        include /etc/nginx/security-headers.conf;
+        add_header Cache-Control "public, max-age=604800" always;  # a week
+        types { }
+        default_type application/geo+json;
         try_files $uri =404;
     }
 
