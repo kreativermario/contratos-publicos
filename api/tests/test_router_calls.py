@@ -110,3 +110,23 @@ def test_supplier_aggregates_match_what_the_six_queries_used_to_return():
     assert abs(got["hhi"] - (0.25 + 0.09 + 0.01 + 0.01)) < 1e-12
     empty = supplier_aggregates([], 0.0, repeat_min=5)
     assert empty["hhi"] is None and empty["top_supplier_value"] == 0 and empty["suppliers"] == 0
+
+
+def test_an_empty_municipality_list_is_a_503_so_nothing_caches_it():
+    """A fresh stack's empty list was served as a 200 and held at the edge for
+    an hour after the data had loaded."""
+    from fastapi import HTTPException
+    from contratos_api.routers.municipalities import list_municipalities
+
+    class Empty:
+        def list_all(self): return []
+
+    class One:
+        def list_all(self): return [{"nif": "1"}]
+
+    try:
+        list_municipalities(Empty())
+        raise AssertionError("an empty list must not be a 200")
+    except HTTPException as exc:
+        assert exc.status_code == 503 and exc.detail == "not_seeded"
+    assert list_municipalities(One()) == [{"nif": "1"}]

@@ -43,7 +43,18 @@ def resolve_nif(nif: str, settings: Settings) -> str:
 
 @router.get("", response_model=list[Municipality])
 def list_municipalities(repo: MunicipalityRepository = Depends(get_repo)):
-    return repo.list_all()
+    """An empty list is a stack that has not been seeded, never an answer.
+
+    As a 200 it was cached like any other: Cloudflare held a fresh box's empty
+    list for the full s-maxage, an hour of a site with no municípios after the
+    data had arrived. A 503 is never cached, the site shows its error page
+    rather than an empty picker, and prerender.mjs takes its loud fallback
+    instead of shipping a sitemap with no município in it.
+    """
+    rows = repo.list_all()
+    if not rows:
+        raise HTTPException(503, "not_seeded", headers={"Retry-After": "300"})
+    return rows
 
 
 @router.get("/{nif}/score", response_model=Score)
