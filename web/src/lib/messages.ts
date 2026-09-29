@@ -459,7 +459,7 @@ const PT: Record<string, string> = {
 	'pan.read2':
 		'A barra mais escura é a percentagem de todo o dinheiro. A barra fina por trás é a diferença entre o mandato mais baixo e o mais alto do mesmo grupo: quando é larga, a média não representa quase nada. Grupos com um só mandato não têm margem nenhuma e estão assinalados.',
 	'pan.read3':
-		'Só estão aqui os municípios já carregados, que são poucos e quase todos da zona de Lisboa. Não é uma amostra do país e não deve ser lida como tal.',
+		'Só entram as câmaras já carregadas nesta base. Se faltar alguma, falta também no total do seu partido e do seu distrito.',
 	'pan.tip.list': 'Lista',
 	'pan.tip.president': 'Presidente',
 	'pan.tip.term': 'Mandato',
@@ -798,7 +798,7 @@ const EN: Record<string, string> = {
 	'verdict.clean.quip': 'Real tenders, and more suppliers than would fit round a dinner table.',
 	'verdict.fishy': 'Smells of favours',
 	'verdict.fishy.quip': 'Nothing unlawful in sight, but the same names turn up far too often.',
-	'verdict.blatant': 'Favours this obvious',
+	'verdict.blatant': 'Favours in plain sight',
 	'verdict.blatant.quip': 'Almost nobody bidding, and the money always falls on the same side.',
 
 	/* ---- severity ------------------------------------------------------ */
@@ -918,7 +918,7 @@ const EN: Record<string, string> = {
 	'muni.metaDescription':
 		'Public contracts in {name}: who gets the money, how much skipped a tender and which firms win most.',
 	'muni.prerenderSections':
-		'This page brings together, for {name}: the risk index and the Favour-meter, the map of money by municipality, the network between the council and the firms that win work from it, the supplier list, statistics by year and by kind of work, and every contract one by one.',
+		'This page brings together, for {name}: the risk index and the Favours index, the map of money by municipality, the network between the council and the firms that win work from it, the supplier list, statistics by year and by kind of work, and every contract one by one.',
 	'muni.tab.overview': 'Overview',
 	'muni.tab.map': 'Map',
 	'muni.tab.network': 'Network',
@@ -964,7 +964,7 @@ const EN: Record<string, string> = {
 	'muni.group.sector': 'Sector',
 	'muni.group.procedure': 'Procedure',
 	'muni.barsAria': 'Largest destinations of the money, grouped by {grouping}',
-	'muni.barsNoteSupplier': 'Click a bar to open that company page.',
+	'muni.barsNoteSupplier': 'Click a bar to open that company’s page.',
 	'muni.barsNoteOther': 'Click a bar to see only those contracts.',
 	'muni.legendNoAd': 'no direct awards',
 	'muni.legendSome': 'some',
@@ -1132,7 +1132,7 @@ const EN: Record<string, string> = {
 	'pan.read2':
 		'The darker bar is the share of all the money. The thin bar behind it is the gap between the lowest and the highest term in the same group: when it is wide, the average means almost nothing. Groups with a single term have no spread at all and are marked.',
 	'pan.read3':
-		'Only the councils already loaded are here, and they are few and almost all around Lisbon. This is not a sample of the country and must not be read as one.',
+		'Only the councils already loaded into this database are counted. If one is missing, it is missing from the total of its party and of its district too.',
 	'pan.tip.list': 'List',
 	'pan.tip.president': 'Mayor',
 	'pan.tip.term': 'Term',
@@ -1297,7 +1297,7 @@ const EN: Record<string, string> = {
 	'tbl.type': 'Type',
 	'tbl.noNif': 'no tax number',
 	'tbl.noNifTitle':
-		'No tax number on record. Opens this company contracts in this council.',
+		'No tax number on record. Opens this company’s contracts with this council.',
 	'tbl.newCompany': 'new company',
 	'tbl.searchObject': 'Search object or supplier',
 	'tbl.searchObjectPlaceholder': 'refeições, asfalto, Gertal…',

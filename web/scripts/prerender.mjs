@@ -85,8 +85,12 @@ const esc = (s) =>
 
 /** Replace the shell's head tags rather than appending: a second <title> or a
  *  second canonical is worse than the generic one it was meant to fix. */
-function rewriteHead(shell, { title, description, canonical, alternates, jsonLd }) {
+function rewriteHead(shell, { lang, title, description, canonical, alternates, jsonLd }) {
+	// app.html says pt-PT, and +layout.svelte only corrects it once JS runs. A
+	// crawler, or a screen reader that reads before hydration, took every
+	// English page for Portuguese.
 	let html = shell
+		.replace(/<html lang="[^"]*">/, `<html lang="${lang === 'en' ? 'en' : 'pt-PT'}">`)
 		.replace(/<title>[\s\S]*?<\/title>/, `<title>${esc(title)}</title>`)
 		.replace(/<meta name="description" content="[^"]*" \/>/,
 			`<meta name="description" content="${esc(description)}" />`)
@@ -303,6 +307,7 @@ written.push(write('pt', '/', addJsonLd(shell, homeJsonLd('pt'))));
 {
 	const { pt, en } = seoUrls(SITE, '/');
 	written.push(write('en', '/', rewriteHead(shell, {
+		lang: 'en',
 		title: msg('en', 'common.siteTitle'),
 		description: msg('en', 'common.description'),
 		canonical: en,
@@ -320,6 +325,7 @@ for (const m of municipalities) {
 		const description = msg(lang, 'muni.metaDescription', { name });
 		const canonical = lang === 'en' ? en : pt;
 		written.push(write(lang, path, withBody(rewriteHead(shell, {
+			lang,
 			title: msg(lang, 'muni.metaTitle', { name }),
 			description,
 			canonical,
