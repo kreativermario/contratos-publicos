@@ -129,6 +129,9 @@ class Ingestor:
         # past Cloudflare's timeout. Seconds here, so it is unconditional.
         log.info("analyze: refreshing planner statistics")
         self.db.analyze()
+        # After every pass, because every pass can add a firm or move a total.
+        log.info("summaries: rebuilding supplier debuts and buyer totals")
+        self.db.refresh_summaries()
 
 
 def main(argv: list[str] | None = None) -> int:

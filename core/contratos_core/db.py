@@ -76,6 +76,13 @@ class Database:
         # A new index has no statistics until something asks for them, and the
         # deploy that adds one is exactly when the planner must not guess.
         self.analyze()
+        # The API reads the summaries and has no live fallback, so the deploy
+        # that introduces them has to fill them before it starts. Afterwards
+        # ingest keeps them current and this finds them populated.
+        with self.engine.connect() as conn:
+            empty = conn.execute(text("SELECT NOT EXISTS (SELECT 1 FROM supplier_debuts)")).scalar()
+        if empty:
+            self.refresh_summaries()
 
     def add_missing_columns(self) -> None:
         """ALTER TABLE ADD COLUMN for every column the ORM has and the database
@@ -132,6 +139,32 @@ class Database:
         for name in RETIRED_INDEXES:
             with self.engine.begin() as conn:
                 conn.execute(text(f'DROP INDEX IF EXISTS "{name}"'))
+
+    #: Both summaries in one transaction, DELETE rather than TRUNCATE: TRUNCATE
+    #: takes an exclusive lock and every reader would queue behind the rebuild,
+    #: while under MVCC they keep reading the old rows until the commit.
+    #: `coalesce(s.nif, s.name)` is `_supplier_id()` in the API and must match it.
+    REFRESH_SUMMARIES = (
+        "DELETE FROM supplier_debuts",
+        """INSERT INTO supplier_debuts (sid, first_seen)
+           SELECT coalesce(s.nif, s.name), min(c.signed_date)
+           FROM contract_suppliers s JOIN contracts c ON c.id = s.contract_id
+           GROUP BY 1""",
+        "DELETE FROM buyer_summaries",
+        """INSERT INTO buyer_summaries (nif, name, contracts, total, since, latest)
+           SELECT buyer_nif, mode() WITHIN GROUP (ORDER BY buyer_name), count(*),
+                  sum(value), min(signed_date), max(signed_date)
+           FROM contracts WHERE buyer_nif IS NOT NULL
+           GROUP BY buyer_nif""",
+    )
+
+    def refresh_summaries(self) -> None:
+        """Rebuild the derived tables the API reads instead of aggregating live."""
+        with self.engine.begin() as conn:
+            for stmt in self.REFRESH_SUMMARIES:
+                conn.execute(text(stmt))
+            conn.execute(text("ANALYZE supplier_debuts"))
+            conn.execute(text("ANALYZE buyer_summaries"))
 
     def analyze(self) -> None:
         """Refresh the planner's statistics for every ORM table.

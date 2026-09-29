@@ -68,13 +68,13 @@ def test_an_index_added_to_an_existing_table_is_reported():
     município list seq-scanned the national contracts table for 18.8s.
     """
     table = Contract.__table__
-    have = {i.name for i in table.indexes} - {"ix_contracts_buyer_cover"}
-    assert [i.name for i in missing_indexes(table, have)] == ["ix_contracts_buyer_cover"]
+    have = {i.name for i in table.indexes} - {"ix_contracts_buyer_scan"}
+    assert [i.name for i in missing_indexes(table, have)] == ["ix_contracts_buyer_scan"]
 
 
 def _cover():
     return next(i for i in Contract.__table__.indexes
-                if i.name == "ix_contracts_buyer_cover")
+                if i.name == "ix_contracts_buyer_scan")
 
 
 def test_the_cover_index_ranges_on_a_key_column_not_an_include():
@@ -94,7 +94,10 @@ def test_the_cover_index_carries_what_the_summary_reads():
     """An index-only scan needs every column the query touches. Drop one from
     INCLUDE and Postgres silently returns to the heap, and the 18.8s comes
     back with no error to tell anybody."""
-    assert set(_cover().dialect_options["postgresql"]["include"]) == {"buyer_name", "value"}
+    assert set(_cover().dialect_options["postgresql"]["include"]) >= {
+        "buyer_name", "value",                                   # the summary
+        "id", "year", "procedure", "n_bidders", "cpv",           # per-município
+    }
 
 
 def test_the_indexes_it_replaced_are_retired_by_name():

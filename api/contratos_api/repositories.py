@@ -7,9 +7,9 @@ from sqlalchemy.orm import Session
 
 from datetime import date
 
-from contratos_core import (CONCELHOS, CPV_SECTORS, CompanyProfile, Contract,
+from contratos_core import (CONCELHOS, CPV_SECTORS, BuyerSummary, CompanyProfile, Contract,
                              ContractBidder, ContractLocation, ContractSupplier,
-                             Entity, Mandate, Settings, concelho_name, dico_for,
+                             Entity, Mandate, Settings, SupplierDebut, concelho_name, dico_for,
                              divisions_for, is_camara, sector_for)
 from .services.flags import FlagContext, slice_groups, supplier_id
 
@@ -176,50 +176,60 @@ def _supplier_id():
     return func.coalesce(ContractSupplier.nif, ContractSupplier.name)
 
 
+def supplier_aggregates(rows: list[dict], total_value: float, repeat_min: int) -> dict:
+    """The concentration figures `score_inputs` needs, from one read of the
+    per-supplier rows. Pure, so the arithmetic is testable without a database.
+
+    Herfindahl over every supplier, not just three: 68% held by three of six
+    firms and 68% held by three of 232 are not the same market.
+    """
+    values = sorted((r["v"] for r in rows), reverse=True)
+    return {
+        "top3_value": sum(values[:3]),
+        "suppliers": len(rows),
+        "repeat_value": sum(r["v"] for r in rows if r["n"] >= repeat_min),
+        "top_supplier_value": values[0] if values else 0,
+        "hhi": sum((v / total_value) ** 2 for v in values) if total_value > 0 else None,
+    }
+
+
 class MunicipalityRepository:
     def __init__(self, session: Session) -> None:
         self.session = session
 
+    _SUMMARY = (BuyerSummary.nif, BuyerSummary.name, BuyerSummary.contracts,
+                BuyerSummary.total, BuyerSummary.since, BuyerSummary.latest)
+
     def list_all(self) -> list[dict]:
-        stmt = (
-            select(
-                Contract.buyer_nif.label("nif"),
-                _canonical_buyer_name.label("name"),
-                func.count().label("contracts"),
-                func.sum(Contract.value).label("total"),
-                func.min(Contract.signed_date).label("since"),
-                func.max(Contract.signed_date).label("latest"),
-            )
-            .where(Contract.buyer_nif.is_not(None), _looks_like_camara())
-            .group_by(Contract.buyer_nif)
-            .order_by(func.sum(Contract.value).desc().nulls_last())
-        )
-        # IMPIC publishes every public buyer in the country, not just câmaras.
-        # While MUNICIPALITY_NIFS scoped the ingest this filter was implicit;
-        # the moment it was emptied for national coverage the list grew from
-        # 308 municípios to ~5 975 buyers, carrying hospitals, agrupamentos de
-        # escolas and misericórdias into the picker, the nav, the prerender and
-        # the sitemap. Filtered here rather than in SQL because this is also
-        # what `_nif_dico_pairs` and therefore both rankings read, and because
-        # Postgres regexes spell a word boundary \y, not \b.
+        # Read from the summary ingest rebuilds: grouping the national table
+        # here took 25s and every page and both rankings wait on this list.
+        # IMPIC publishes every public buyer in the country, not just câmaras,
+        # and `is_camara` is the one rule for which is which. It stays in
+        # Python because it is also what `_nif_dico_pairs` and therefore both
+        # rankings read, and because Postgres regexes spell a word boundary \y.
+        stmt = select(*self._SUMMARY).order_by(BuyerSummary.total.desc().nulls_last())
         return [row._asdict() for row in self.session.execute(stmt)
                 if is_camara(row.name)]
 
     def get(self, nif: str) -> dict | None:
-        stmt = (
-            select(
-                Contract.buyer_nif.label("nif"),
-                _canonical_buyer_name.label("name"),
-                func.count().label("contracts"),
-                func.sum(Contract.value).label("total"),
-                func.min(Contract.signed_date).label("since"),
-                func.max(Contract.signed_date).label("latest"),
-            )
-            .where(Contract.buyer_nif == nif)
-            .group_by(Contract.buyer_nif)
-        )
-        row = self.session.execute(stmt).first()
+        row = self.session.execute(
+            select(*self._SUMMARY).where(BuyerSummary.nif == nif)).first()
         return row._asdict() if row else None
+
+    def _debuts(self, ids) -> dict:
+        """First contract anywhere, per firm, from the table ingest rebuilds.
+
+        Keyed the same way every grouping is, `_supplier_id()`, or a firm's
+        debut would be read off one of its spellings and the others would look
+        brand new. Live, this read every national contract of every firm asked
+        about, which is what held /score at 30s."""
+        ids = list(ids)
+        if not ids:
+            return {}
+        return dict(self.session.execute(
+            select(SupplierDebut.sid, SupplierDebut.first_seen)
+            .where(SupplierDebut.sid.in_(ids))
+        ).all())
 
     # The Código dos Contratos Públicos was revised by Decreto-Lei 111-B/2017,
     # in force from 1 January 2018 with the bulk of the ajuste direto changes
@@ -779,17 +789,8 @@ class MunicipalityRepository:
         """
         if not rows:
             return
-        # Keyed the same way the grouping is, or a firm's debut would be read off
-        # one of its spellings and the other spellings would look brand new.
-        ids = [r.get("nif") or r.get("name") for r in rows if r.get("nif") or r.get("name")]
-        debut = dict(
-            self.session.execute(
-                select(_supplier_id(), func.min(Contract.signed_date))
-                .join(Contract, Contract.id == ContractSupplier.contract_id)
-                .where(_supplier_id().in_(ids))
-                .group_by(_supplier_id())
-            ).all()
-        ) if ids else {}
+        debut = self._debuts(r.get("nif") or r.get("name") for r in rows
+                             if r.get("nif") or r.get("name"))
         dataset_start = self.session.scalar(select(func.min(Contract.signed_date)))
 
         for r in rows:
@@ -821,28 +822,27 @@ class MunicipalityRepository:
         # off the rows on screen. Grouping the page made the flag depend on
         # pagination and on the sort order: three awards either side of a page
         # boundary were invisible, and the same contract carried the chip under
-        # one sort and not another.
+        # one sort and not another. On a buyer's page it is read off that
+        # buyer's contracts only: the buyer is part of the slice key, so the
+        # firm's work for every other câmara could never join a run here, and
+        # reading it anyway is what held /contracts at 8s for a firm like EDP.
+        everywhere = (select(Contract.id, _supplier_id(), Contract.buyer_nif,
+                             Contract.cpv, Contract.value, Contract.signed_date)
+                      .join(ContractSupplier, ContractSupplier.contract_id == Contract.id)
+                      .where(_supplier_id().in_(ids))
+                      .where(Contract.signed_date.is_not(None))
+                      .where(Contract.value.is_not(None)))
         ctx.sliced = slice_groups([
             {"id": cid, "sid": sid, "buyer_nif": buyer, "cpv": cpv,
              "value": value, "signed_date": signed}
             for cid, sid, buyer, cpv, value, signed in self.session.execute(
-                select(Contract.id, _supplier_id(), Contract.buyer_nif,
-                       Contract.cpv, Contract.value, Contract.signed_date)
-                .join(ContractSupplier, ContractSupplier.contract_id == Contract.id)
-                .where(_supplier_id().in_(ids))
-                .where(Contract.signed_date.is_not(None))
-                .where(Contract.value.is_not(None))
+                everywhere.where(Contract.buyer_nif == nif) if nif else everywhere
             )
         ], settings)
 
         # First appearance anywhere, at any buyer: a firm that has worked for
         # the next câmara over for a decade is not new, however new it is here.
-        ctx.debut = dict(self.session.execute(
-            select(_supplier_id(), func.min(Contract.signed_date))
-            .join(Contract, Contract.id == ContractSupplier.contract_id)
-            .where(_supplier_id().in_(ids))
-            .group_by(_supplier_id())
-        ).all())
+        ctx.debut = self._debuts(ids)
         ctx.dataset_start = self.session.scalar(select(func.min(Contract.signed_date)))
 
         # Contracts held with THIS buyer, and how many of them came without
@@ -1179,7 +1179,6 @@ class MunicipalityRepository:
         per_supplier = (
             select(
                 _supplier_id().label("sid"),
-                func.mode().within_group(ContractSupplier.name).label("name"),
                 func.coalesce(func.sum(scoped.c.value), 0).label("v"),
                 func.count().label("n"),
                 func.min(scoped.c.signed_date).label("first_win"),
@@ -1192,64 +1191,27 @@ class MunicipalityRepository:
             .group_by(_supplier_id())
             .subquery()
         )
-        top3 = (
-            select(per_supplier.c.v)
-            .order_by(per_supplier.c.v.desc().nulls_last())
-            .limit(3).subquery()
-        )
-        totals["top3_value"] = self.session.execute(
-            select(func.coalesce(func.sum(top3.c.v), 0))
-        ).scalar()
-        totals["suppliers"] = self.session.execute(
-            select(func.count()).select_from(per_supplier)
-        ).scalar()
-        totals["repeat_value"] = self.session.execute(
-            select(func.coalesce(func.sum(per_supplier.c.v), 0))
-            .where(per_supplier.c.n >= repeat_min)
-        ).scalar()
-        totals["top_supplier_value"] = self.session.execute(
-            select(func.coalesce(func.max(per_supplier.c.v), 0))
-        ).scalar()
-
-        # Herfindahl over every supplier, not just three: 68% held by three of
-        # six firms and 68% held by three of 232 are not the same market.
-        total_value = float(totals["total_value"] or 0)
-        if total_value > 0:
-            totals["hhi"] = float(self.session.execute(
-                select(func.coalesce(
-                    func.sum(
-                        (cast(per_supplier.c.v, Numeric) / total_value)
-                        * (cast(per_supplier.c.v, Numeric) / total_value)
-                    ), 0
-                ))
-            ).scalar() or 0)
-        else:
-            totals["hhi"] = None
+        # Read once and summed here. Each of these used to be its own query
+        # over `per_supplier`, so the grouping, mode() and all, ran six times.
+        suppliers = [
+            {"sid": r.sid, "v": float(r.v or 0), "n": r.n,
+             "first_win": r.first_win, "soft_win": r.soft_win}
+            for r in self.session.execute(
+                select(per_supplier.c.sid, per_supplier.c.v, per_supplier.c.n,
+                       per_supplier.c.first_win, per_supplier.c.soft_win))
+        ]
+        totals.update(supplier_aggregates(suppliers, float(totals["total_value"] or 0), repeat_min))
 
         totals["newcomer_value"] = self._newcomer_value(
-            per_supplier, newcomer_days, self._period_end(nif, year_from, year_to, date_from, date_to))
+            suppliers, newcomer_days, self._period_end(nif, year_from, year_to, date_from, date_to))
         return totals
 
-    def _newcomer_value(self, per_supplier, newcomer_days: int,
+    def _newcomer_value(self, rows: list[dict], newcomer_days: int,
                         period_end=None) -> float | None:
         """Money that went to firms new to public contracting, or None if unknowable."""
-        rows = [
-            {"sid": r.sid, "first_win": r.first_win, "v": float(r.v or 0),
-             "soft_win": r.soft_win}
-            for r in self.session.execute(
-                select(per_supplier.c.sid, per_supplier.c.v, per_supplier.c.first_win,
-                       per_supplier.c.soft_win)
-            )
-        ]
         if not rows:
             return None
-        ids = [r["sid"] for r in rows]
-        wins = dict(self.session.execute(
-            select(_supplier_id(), func.min(Contract.signed_date))
-            .join(Contract, Contract.id == ContractSupplier.contract_id)
-            .where(_supplier_id().in_(ids))
-            .group_by(_supplier_id())
-        ).all())
+        wins = self._debuts(r["sid"] for r in rows)
         dataset_start = self.session.scalar(select(func.min(Contract.signed_date)))
         known, total = False, 0.0
         for r in rows:

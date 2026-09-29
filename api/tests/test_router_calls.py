@@ -89,3 +89,24 @@ def test_the_supplier_id_index_matches_the_expression_the_queries_filter_on():
     indexed = str(index.expressions[0]).replace(" ", "")
     queried = str(_supplier_id().compile(dialect=postgresql.dialect())).replace(" ", "")
     assert queried.replace("contract_suppliers.", "") == indexed
+
+
+def test_supplier_debuts_are_built_with_the_same_identity_the_queries_ask_for():
+    """The table is looked up by `_supplier_id()`. Built under any other key,
+    every lookup misses, every firm reads as unknowable, and nothing errors."""
+    from contratos_core import Database
+    assert any("coalesce(s.nif, s.name)" in stmt for stmt in Database.REFRESH_SUMMARIES)
+    test_the_supplier_id_index_matches_the_expression_the_queries_filter_on()
+
+
+def test_supplier_aggregates_match_what_the_six_queries_used_to_return():
+    from contratos_api.repositories import supplier_aggregates
+    rows = [{"v": v, "n": n} for v, n in [(50.0, 6), (30.0, 1), (10.0, 5), (10.0, 2)]]
+    got = supplier_aggregates(rows, 100.0, repeat_min=5)
+    assert got["top3_value"] == 90.0
+    assert got["suppliers"] == 4
+    assert got["repeat_value"] == 60.0
+    assert got["top_supplier_value"] == 50.0
+    assert abs(got["hhi"] - (0.25 + 0.09 + 0.01 + 0.01)) < 1e-12
+    empty = supplier_aggregates([], 0.0, repeat_min=5)
+    assert empty["hhi"] is None and empty["top_supplier_value"] == 0 and empty["suppliers"] == 0

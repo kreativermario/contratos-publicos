@@ -27,6 +27,7 @@ class Base(DeclarativeBase):
 RETIRED_INDEXES: tuple[str, ...] = (
     "ix_contracts_buyer",          # superseded by ix_contracts_buyer_cover
     "ix_contracts_buyer_summary",  # ranged on signed_date but only INCLUDEd it
+    "ix_contracts_buyer_cover",    # superseded by ix_contracts_buyer_scan
 )
 
 
@@ -81,8 +82,18 @@ class Contract(Base):
         # the buyer instead of seeking. /rankings/* went from 11.5s to over 60s,
         # which is nginx's proxy_read_timeout, so readers got the 5xx page and
         # nothing was ever cached. Never INCLUDE a column the query ranges on.
-        Index("ix_contracts_buyer_cover", "buyer_nif", "signed_date",
-              postgresql_include=["buyer_name", "value"]),
+        #
+        # The INCLUDE list is every column the per-município aggregates read
+        # (score, suppliers, stats), so they are index-only too. A contract row
+        # averages 1.9 KB, 1.4 KB of it the `raw` IMPIC record, so the heap
+        # holds about three rows a page: Odivelas's 4 634 contracts cost 3 754
+        # page reads and 0.9s per scan, and /score made several. `year` is
+        # INCLUDEd although the year chips filter on it, which the rule above
+        # forbids for a SEEK: here it only filters one buyer's few thousand
+        # index entries, never the heap. `id` is what the supplier join reads.
+        Index("ix_contracts_buyer_scan", "buyer_nif", "signed_date",
+              postgresql_include=["buyer_name", "value", "id", "year", "procedure",
+                                  "n_bidders", "cpv"]),
         # min(signed_date) over the whole table is the dataset start, which the
         # newcomer rule reads on every score, supplier list and contract page.
         # Without this it was a sequential scan of the national table each time.
@@ -184,6 +195,38 @@ class CompanyProfile(Base):
     fetched_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+
+
+class SupplierDebut(Base):
+    """A firm's first contract anywhere in the record, one row per firm.
+
+    Derived, never ingested: `Database.refresh_summaries` rebuilds it after
+    every ingest pass. Every newcomer rule asks this question, and asked live it
+    meant reading every national contract of every firm on the page, which on
+    a box with less RAM than the table is random I/O measured in tens of
+    seconds. `sid` is `_supplier_id()`, the NIF where the record has one.
+    """
+    __tablename__ = "supplier_debuts"
+
+    sid: Mapped[str] = mapped_column(Text, primary_key=True)
+    first_seen: Mapped[date | None] = mapped_column(Date)
+
+
+class BuyerSummary(Base):
+    """Lifetime totals per buyer NIF, rebuilt with `SupplierDebut`.
+
+    The município list grouped the whole national table on every cache miss,
+    25s, and every page and both rankings read it. Every buyer is kept, not
+    just the câmaras: `is_camara` stays the one rule, applied on read.
+    """
+    __tablename__ = "buyer_summaries"
+
+    nif: Mapped[str] = mapped_column(String(20), primary_key=True)
+    name: Mapped[str | None] = mapped_column(Text)
+    contracts: Mapped[int] = mapped_column(Integer)
+    total: Mapped[float | None] = mapped_column(Numeric(18, 2))
+    since: Mapped[date | None] = mapped_column(Date)
+    latest: Mapped[date | None] = mapped_column(Date)
 
 
 class Entity(Base):

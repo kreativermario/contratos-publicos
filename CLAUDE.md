@@ -731,8 +731,8 @@ the amount and the unit separately; the unit goes in a `.unit` span (Archivo
   (`api/contratos_api/warm.py`) can finish and leave an answer in the cache,
   which is the only reason `/rankings/*` is reachable at all today. A reader
   never waits for these; they either HIT or they fail.
-- **Never INCLUDE a column the query ranges on.** `ix_contracts_buyer_cover` is
-  `(buyer_nif, signed_date) INCLUDE (buyer_name, value)` and the key order is
+- **Never INCLUDE a column the query ranges on.** `ix_contracts_buyer_scan` is
+  `(buyer_nif, signed_date) INCLUDE (buyer_name, value, ...)` and the key order is
   the whole of it. An earlier version keyed on `buyer_nif` alone and INCLUDEd
   `signed_date`, which is covering but unordered: `_per_mandate_era` joins on
   `buyer_nif` **and a `signed_date` range**, so the range stopped being a seek
@@ -743,6 +743,18 @@ the amount and the unit separately; the unit goes in a `.unit` span (Archivo
   whose cache can never fill is a permanently dead one, which is why that
   timeout is now `NGINX_API_TIMEOUT` and generous: better the first reader
   waits than that nobody is ever served.
+- **A contract row is 1.9 KB and 1.4 KB of it is `raw`.** The IMPIC record
+  sits inline in the heap, so a page holds about three contracts and any query
+  that touches the heap pays roughly one disk read per contract on a box with
+  less RAM than the table: Odivelas's 4 634 contracts were 3 754 reads and
+  0.9s per scan. Two answers, both in place. Anything asked of every firm or
+  every buyer nationally is precomputed at ingest (`supplier_debuts`,
+  `buyer_summaries`, rebuilt by `Database.refresh_summaries`), and the
+  per-buyer aggregates are index-only off `ix_contracts_buyer_scan`. A new
+  column read by a per-município aggregate belongs in that INCLUDE list, or
+  the query silently goes back to the heap. Measured before either: `/score`
+  31s, of which 26s was one debut lookup reading every national contract of
+  every firm the câmara ever used.
 - **A supplier is a NIF, not a name.** The record spells one firm several ways:
   EDP appears six times in Loures, Uniself three. Grouping by name split one
   company into several, which deflated HHI and top-supplier, inflated the
