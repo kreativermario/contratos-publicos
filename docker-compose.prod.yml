@@ -202,7 +202,14 @@ services:
     image: ${API_IMAGE}
     mem_limit: ${MEM_API:-512m}
     user: "10001:10001"
-    environment: *appenv
+    # WEB_CONCURRENCY is uvicorn's own --workers default. One process was right
+    # on two cores; on more, the Python half of a request (flag rules, JSON)
+    # stops queuing behind the others. Each worker holds its own pool of up to
+    # DB_POOL_MAX connections, so PG_MAX_CONNECTIONS has to cover
+    # API_WORKERS x DB_POOL_MAX plus the loops, and MEM_API grows per worker.
+    environment:
+      <<: *appenv
+      WEB_CONCURRENCY: ${API_WORKERS:-1}
     depends_on:
       db: {condition: service_healthy}
       migrate: {condition: service_completed_successfully}
