@@ -114,6 +114,15 @@ server {
     location ~* \.(bak|old|orig|swp|sql|log|ini|conf|yml|yaml|toml)$ {
         return 404 ""; access_log off; log_not_found off;
     }
+    # Server-side scripts and CMS paths, which this static site can never have.
+    # They used to fall through to the SPA and answer 200 with the shell, which
+    # tells a scanner the path exists and brings it back for more: one walked
+    # //images/images/.../cache.php eight levels deep. Matched by path, not by
+    # User-Agent: that scanner sent "Mozlila/5.0 ... Chrome/60", and a UA list
+    # misses whatever it has not seen while blocking crawlers this site wants.
+    location ~* (?:\.(?:php[0-9]?|phtml|asp|aspx|jsp|cgi|pl)$|^/(?:wp-|wordpress|cgi-bin/|xmlrpc|phpmyadmin|vendor/)) {
+        return 404 ""; access_log off; log_not_found off;
+    }
 
     location = /healthz { return 200 "ok\n"; access_log off; add_header Content-Type text/plain; }
 

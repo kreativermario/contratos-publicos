@@ -170,8 +170,13 @@ otherwise answer with `index.html`.
 
 Three tiers, because not every failure has a reader.
 
-**Probes get nothing.** Dotfiles, backup extensions, missing hashed assets and
-non-GET requests answer with a ten-byte body. `return 404 "";` with a body
+**Probes get nothing.** Dotfiles, backup extensions, server-side scripts and
+CMS paths (`.php`, `wp-*`, `cgi-bin/`, `xmlrpc`), missing hashed assets and
+non-GET requests answer with a ten-byte body. Match by path, never by
+User-Agent: the scanners send forged browser strings ("Mozlila/5.0 ...
+Chrome/60"), so a UA list misses them and blocks crawlers the site wants.
+Before the script rule, a `.php` probe fell through to the SPA and got a 200,
+which told the scanner the path existed. `return 404 "";` with a body
 bypasses `error_page` entirely, which is the whole trick. A person never sees an
 nginx 404 anyway: unknown paths fall through to the SPA.
 
