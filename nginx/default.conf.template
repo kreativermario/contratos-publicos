@@ -134,6 +134,10 @@ server {
     location ~* ^/(fonts/|pt-(?:municipios|distritos)\.geojson$|og\.png$|favicon\.svg$|apple-touch-icon\.png$) {
         include /etc/nginx/security-headers.conf;
         add_header Cache-Control "public, max-age=604800" always;  # a week
+        # nginx's mime.types has no geojson, so the geometry went out as
+        # application/octet-stream, which gzip_types does not match: 600 KB
+        # uncompressed on every landing load instead of about 150 KB.
+        types { application/geo+json geojson; }
         try_files $uri =404;
     }
 
@@ -210,5 +214,5 @@ server {
     gzip_min_length 1024;
     gzip_proxied any;
     gzip_types text/plain text/css application/javascript application/json
-               image/svg+xml application/manifest+json;
+               image/svg+xml application/manifest+json application/geo+json;
 }
