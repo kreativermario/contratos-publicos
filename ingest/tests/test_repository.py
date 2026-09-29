@@ -40,3 +40,22 @@ def test_dedupe_leaves_a_clean_batch_alone():
 
 def test_dedupe_is_empty_safe():
     assert EntityRepository._dedupe([]) == []
+
+
+def test_a_long_load_rebuilds_the_summaries_as_it_goes():
+    """Rebuilt only at the end, a fresh stack listed no município for the whole
+    of its first load. The clock is faked; the database never connects."""
+    from unittest import mock
+    from contratos_ingest.repository import ContractRepository
+
+    db = mock.Mock()
+    repo = ContractRepository(db)
+    repo._write_batch = lambda batch: len(batch)
+    ticks = iter([0, 0, 400, 400, 900, 900])  # start, batch, batch+reset, batch+reset
+    with mock.patch("contratos_ingest.repository.time.monotonic", lambda: next(ticks)):
+        assert repo.bulk_upsert(range(6), batch_size=2, refresh_every=300) == 6
+    assert db.refresh_summaries.call_count == 2
+
+    db.reset_mock()
+    assert repo.bulk_upsert(range(6), batch_size=2, refresh_every=0) == 6
+    db.refresh_summaries.assert_not_called()

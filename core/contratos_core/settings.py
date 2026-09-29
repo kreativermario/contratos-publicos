@@ -32,6 +32,9 @@ class Settings(BaseSettings):
     dados_gov_api: str = Field("https://dados.gov.pt/api/1", alias="DADOS_GOV_API")
     workdir: str = Field("/data", alias="WORKDIR")
     batch_size: int = Field(20_000, alias="INGEST_BATCH_SIZE")
+    # How often a long load rebuilds the derived summaries it is outdating.
+    # 0 means only at the end of the run.
+    summary_refresh_seconds: int = Field(300, alias="INGEST_SUMMARY_REFRESH_SECONDS")
 
     # ---- apiaberta ----
     apiaberta_base: str = Field("https://api.apiaberta.pt/v1/base", alias="APIABERTA_BASE")

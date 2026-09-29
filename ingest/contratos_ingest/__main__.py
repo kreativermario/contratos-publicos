@@ -41,7 +41,8 @@ class Ingestor:
 
     def impic(self) -> int:
         source = ImpicContractSource(self.settings)
-        count = self.contracts.bulk_upsert(source.records(), self.settings.batch_size)
+        count = self.contracts.bulk_upsert(source.records(), self.settings.batch_size,
+                                          self.settings.summary_refresh_seconds)
         log.info("IMPIC: %s contracts", count)
         return count
 
@@ -61,7 +62,8 @@ class Ingestor:
         known = self.contracts.known_ids()
         log.info("delta: %s contracts already held", len(known))
         source = ApiabertaSource(self.settings, known)
-        count = self.contracts.bulk_upsert(source.records(), self.settings.batch_size)
+        count = self.contracts.bulk_upsert(source.records(), self.settings.batch_size,
+                                          self.settings.summary_refresh_seconds)
         log.info("apiaberta: %s new contracts", count)
         return count
 

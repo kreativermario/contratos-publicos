@@ -7,6 +7,7 @@ followed by an upsert. Pushing millions of rows through ORM instances is roughly
 from __future__ import annotations
 
 import logging
+import time
 from collections.abc import Iterable, Iterator
 from typing import Any
 
@@ -50,11 +51,23 @@ class ContractRepository:
         with self.db.engine.connect() as conn:
             return {row[0] for row in conn.execute(text("SELECT id FROM contracts"))}
 
-    def bulk_upsert(self, records: Iterable[ContractRecord], batch_size: int) -> int:
-        total = 0
+    def bulk_upsert(self, records: Iterable[ContractRecord], batch_size: int,
+                    refresh_every: float = 0) -> int:
+        """Load in batches, rebuilding the summaries every `refresh_every` seconds.
+
+        The API reads the município list and every debut from those summaries,
+        and a fresh stack's first load runs for an hour or more. Rebuilt only
+        at the end, the site listed no município at all until the seed was
+        done. Measured at 1.4s over 800k contracts, so a few minutes apart is
+        noise next to the load itself.
+        """
+        total, last = 0, time.monotonic()
         for batch in _chunked(records, batch_size):
             total += self._write_batch(batch)
             log.info("loaded %s contracts", total)
+            if refresh_every and time.monotonic() - last >= refresh_every:
+                self.db.refresh_summaries()
+                last = time.monotonic()
         return total
 
     def _write_batch(self, batch: list[ContractRecord]) -> int:
