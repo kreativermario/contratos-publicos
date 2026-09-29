@@ -249,7 +249,19 @@ ${entries}
 // copy of it, so stripping once here strips them everywhere. There is no
 // `%sveltekit.body%` content to protect: the app is ssr:false, so the shell
 // carries no hydration markers of the `<!--[-->` kind.
-const shell = readFileSync(join(BUILD, 'index.html'), 'utf8').replace(/\n?\s*<!--[\s\S]*?-->/g, '');
+//
+// Repeated until nothing changes, not run once: a single pass over
+// `<!-<!-- x -->- y -->` leaves a fresh `<!-- y -->` behind (CodeQL
+// js/incomplete-multi-character-sanitization). The input is our own build, so
+// this was never exploitable, but a loop costs nothing and is simply correct.
+const stripComments = (html) => {
+	for (let prev; prev !== html; ) {
+		prev = html;
+		html = html.replace(/\n?\s*<!--[\s\S]*?-->/g, '');
+	}
+	return html;
+};
+const shell = stripComments(readFileSync(join(BUILD, 'index.html'), 'utf8'));
 
 /** The shell path for a route in a language tree: '' for pt, '/en' for en. */
 const fileFor = (lang, path) =>
