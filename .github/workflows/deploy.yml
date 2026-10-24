@@ -177,7 +177,13 @@ jobs:
           NETBIRD_MANAGEMENT_URL: ${{ vars.NETBIRD_MANAGEMENT_URL }}
           # A variable rather than a literal, because the thing that breaks this
           # is a client newer than the self-hosted management it talks to.
-          NETBIRD_VERSION: ${{ vars.NETBIRD_VERSION || '0.79.0' }}
+          NETBIRD_VERSION: ${{ vars.NETBIRD_VERSION || '0.81.4' }}
+          # The version names a file; this says which bytes. NetBird's releases
+          # are not immutable, so an asset can be re-uploaded under the same
+          # name, and dpkg runs its scripts as root beside the deploy key.
+          # Moving the version means moving this too: set both vars together,
+          # or the check fails closed against the default digest.
+          NETBIRD_SHA256: ${{ vars.NETBIRD_SHA256 || 'bc31f7edb519dc17b4d958b8d5039c6fda64ee58f8faa2323ec0cc8326a849d5' }}
         run: |
           set -euo pipefail
           # A pinned .deb rather than `curl | sh`: the install script pipes a
@@ -185,6 +191,7 @@ jobs:
           # key, and it installs whatever shipped this morning.
           curl -fsSLo /tmp/netbird.deb \
             "https://github.com/netbirdio/netbird/releases/download/v${NETBIRD_VERSION}/netbird_${NETBIRD_VERSION}_linux_amd64.deb"
+          echo "${NETBIRD_SHA256}  /tmp/netbird.deb" | sha256sum -c -
           sudo dpkg -i /tmp/netbird.deb
           # Via a file, never argv: a setup key on the command line is readable
           # in `ps` by anything else sharing the runner.
