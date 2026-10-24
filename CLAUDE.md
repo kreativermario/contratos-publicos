@@ -653,7 +653,8 @@ the amount and the unit separately; the unit goes in a `.unit` span (Archivo
   and world-writable gets there anyway, since each uid writes its own files and
   cannot remove another's. A named volume needs none of this under rootless
   podman, which chowns a fresh one to the container's uid on first mount.
-- `SQLAlchemy 2.1.0` has no stable release; pinned `>=2.0.54,<2.1.0`.
+- SQLAlchemy is pinned `<2.1`. 2.1 is stable now, but the suite never touches a
+  database, so moving to it needs a run against a real one first.
 - `typescript` is pinned `^6`: `svelte-check@4` peers `^5 || ^6`, so TS 7 breaks
   `npm ci`.
 - Multiple `ingest` runs share `/data`; downloads are named per PID so one run
@@ -777,6 +778,26 @@ the amount and the unit separately; the unit goes in a `.unit` span (Archivo
   Independent movements re-register under a new name almost every cycle (IN-OV
   becomes INOV25) with the same president continuing, and comparing party
   strings alone flagged that as a change.
+
+## Supply chain
+
+Everything that is fetched is pinned to content, not to a name: actions by
+commit SHA (with the tag in a comment), every image by digest, Python by hash
+(`api/requirements.txt`, `ingest/requirements.txt`, `requirements-test.txt`,
+installed with `--require-hashes`), npm by the lockfile's integrity. A tag or a
+version number can be moved under you; a digest cannot.
+
+- **Regenerate the Python locks with `scripts/lock-python.sh`**, never by hand.
+  It runs uv from a pinned image, locks `setuptools` too (it builds the local
+  packages, and an unpinned build backend is as much a way in), and leaves the
+  three local packages out, which is also what stops a `contratos-core` on PyPI
+  from ever being installed in place of ours.
+- **`web/.npmrc` sets `ignore-scripts=true`.** No dependency has an install
+  script, and a postinstall is how a hijacked npm package usually runs.
+- `cookie` is overridden to 0.7.2 in `web/package.json`: Kit 2 asks for the
+  vulnerable 0.6. Drop the override with the move to Kit 3.
+- Dependabot (`.github/dependabot.yml`) is what moves the pins, after a
+  seven-day cooldown so a release that gets yanked never reaches a PR.
 
 ## Commit hooks
 

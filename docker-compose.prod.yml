@@ -81,7 +81,7 @@ services:
   # plain docker, which is what docker-compose.yml still uses for development.
   db:
     <<: *hardening
-    image: postgres:18-alpine3.24
+    image: docker.io/library/postgres:18-alpine3.24@sha256:898c60cb390d1085bc97bdd6a1ae968757421df394b071848b52b1c09c89d6a5
     user: "70:70"                      # postgres uid in the alpine variant
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
@@ -270,7 +270,7 @@ services:
   # depends on it, and a tunnel that cannot connect is visible in Cloudflare.
   cloudflared:
     <<: *hardening
-    image: ${CLOUDFLARED_IMAGE:-docker.io/cloudflare/cloudflared:2026.10.3}
+    image: ${CLOUDFLARED_IMAGE:-docker.io/cloudflare/cloudflared:2026.10.3@sha256:faa8e0a1475f137c910be6025f43c8e4092fdd35461b31e19fd1390657a1ff39}
     mem_limit: ${MEM_CLOUDFLARED:-128m}
     # The image already ships USER 65532 and an entrypoint of
     # `cloudflared --no-autoupdate`; the uid is pinned here anyway so a base
