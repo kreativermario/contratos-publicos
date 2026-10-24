@@ -21,7 +21,13 @@ COPY --from=build /venv /venv
 ENV PATH="/venv/bin:$PATH" \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    HOME=/home/app
+    HOME=/home/app \
+    UVICORN_ROOT_PATH=/api
+# nginx proxies /api/ and strips the prefix, so the app is mounted at / but
+# reached at /api. uvicorn's root path is what makes /api/docs ask for
+# /api/openapi.json instead of /openapi.json, which the SPA fallback would answer
+# with index.html. FastAPI's own root_path is deprecated in favour of this.
+# Compose sets it from API_ROOT_PATH.
 USER 10001
 EXPOSE 8000
 CMD ["uvicorn", "contratos_api.app:app", "--host", "0.0.0.0", "--port", "8000", \

@@ -60,10 +60,6 @@ class Settings(BaseSettings):
     # error page. Contract data is a slow public record; week-old figures beat
     # no figures.
     cache_stale_if_error: int = Field(604800, alias="CACHE_STALE_IF_ERROR")
-    # nginx proxies /api/ and strips the prefix, so the app is mounted at / but
-    # reached at /api. Without this the docs page asks for /openapi.json, which
-    # the SPA fallback answers with index.html and Swagger UI rejects.
-    api_root_path: str = Field("/api", alias="API_ROOT_PATH")
     # Versioned surface. nginx keeps proxying /api/ generically, so a future /v2
     # is a change here and nowhere else. /health stays outside it.
     api_version_prefix: str = Field("/v1", alias="API_VERSION_PREFIX")

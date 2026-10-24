@@ -1,10 +1,9 @@
-import { version } from '$app/environment';
-import { env } from '$env/dynamic/public';
-import { maybe, t } from '$lib/messages';
+import { version } from '$app/env';
+import { PUBLIC_API_BASE } from '$app/env/public';
+import { maybe, t } from '#lib/messages.ts';
 
-// Single place that knows where the API lives. Dynamic (not static) env so one
-// image works behind any hostname without a rebuild.
-const BASE = env.PUBLIC_API_BASE || '/api/v1';
+// Single place that knows where the API lives; see src/env.ts.
+const BASE = PUBLIC_API_BASE;
 
 export async function api<T>(path: string, params: Record<string, unknown> = {}): Promise<T> {
 	const qs = new URLSearchParams(

@@ -1,10 +1,10 @@
 <script lang="ts">
-	import Backlink from '$lib/components/Backlink.svelte';
-	import Footer from '$lib/components/Footer.svelte';
-	import Nav from '$lib/components/Nav.svelte';
-	import { dateShort, eur, eurShortParts, nearLimitLabel, num } from '$lib/format';
-	import { L, t } from '$lib/messages';
-	import { reveal } from '$lib/reveal';
+	import Backlink from '#lib/components/Backlink.svelte';
+	import Footer from '#lib/components/Footer.svelte';
+	import Nav from '#lib/components/Nav.svelte';
+	import { dateShort, eur, eurShortParts, nearLimitLabel, num } from '#lib/format.ts';
+	import { L, t } from '#lib/messages.ts';
+	import { reveal } from '#lib/reveal.ts';
 
 	let { data } = $props();
 	const c = $derived(data.contract);

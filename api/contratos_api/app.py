@@ -27,7 +27,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.database.dispose()
 
     app = FastAPI(title="Onde Vai Parar", version="0.1.0", lifespan=lifespan,
-                  root_path=settings.api_root_path,
                   description="Contratos públicos portugueses, lidos com má-língua "
                               "mas com os números certos.")
     app.add_middleware(

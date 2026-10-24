@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import { api, type Supplier } from '$lib/api';
-	import Skeleton from '$lib/components/Skeleton.svelte';
-	import { dateShort, eur, num, pct } from '$lib/format';
-	import { L, t } from '$lib/messages';
+	import { api, type Supplier } from '#lib/api.ts';
+	import Skeleton from '#lib/components/Skeleton.svelte';
+	import { dateShort, eur, num, pct } from '#lib/format.ts';
+	import { L, t } from '#lib/messages.ts';
 
 	let { nif, initial = [], yearFrom, yearTo, forms = [] }: {
 		nif: string | null;

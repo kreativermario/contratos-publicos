@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import Footer from '$lib/components/Footer.svelte';
-	import Nav from '$lib/components/Nav.svelte';
-	import Skeleton from '$lib/components/Skeleton.svelte';
-	import SkeletonTable from '$lib/components/SkeletonTable.svelte';
-	import { L, t } from '$lib/messages';
+	import Footer from '#lib/components/Footer.svelte';
+	import Nav from '#lib/components/Nav.svelte';
+	import Skeleton from '#lib/components/Skeleton.svelte';
+	import SkeletonTable from '#lib/components/SkeletonTable.svelte';
+	import { L, t } from '#lib/messages.ts';
 	import Municipio from './Municipio.svelte';
 	import type { Loaded } from './+page';
 

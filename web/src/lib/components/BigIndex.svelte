@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { severity, severityLabel } from '$lib/format';
-	import { locale, t } from '$lib/messages';
+	import { severity, severityLabel } from '#lib/format.ts';
+	import { locale, t } from '#lib/messages.ts';
 
 	let { value, label, caption, tone = 'auto' }: {
 		value: number | null; label: string; caption?: string; tone?: 'auto' | 'brand';

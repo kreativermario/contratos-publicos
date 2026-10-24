@@ -1,14 +1,14 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import type { Municipality } from '$lib/api';
-	import Chart from '$lib/Chart.svelte';
-	import Skeleton from '$lib/components/Skeleton.svelte';
-	import { mapKey, pickerMapOption, type GeoFeature, type PickTarget } from '$lib/charts';
-	import { narrow } from '$lib/narrow.svelte';
-	import { reveal } from '$lib/reveal';
-	import echarts from '$lib/echarts';
-	import { byShortName, eurShortParts, num, shortMunicipality } from '$lib/format';
-	import { L, t } from '$lib/messages';
+	import type { Municipality } from '#lib/api.ts';
+	import Chart from '#lib/Chart.svelte';
+	import Skeleton from '#lib/components/Skeleton.svelte';
+	import { mapKey, pickerMapOption, type GeoFeature, type PickTarget } from '#lib/charts.ts';
+	import { narrow } from '#lib/narrow.svelte.ts';
+	import { reveal } from '#lib/reveal.ts';
+	import echarts from '#lib/echarts.ts';
+	import { byShortName, eurShortParts, num, shortMunicipality } from '#lib/format.ts';
+	import { L, t } from '#lib/messages.ts';
 
 	let { municipalities = [] }: { municipalities?: Municipality[] } = $props();
 

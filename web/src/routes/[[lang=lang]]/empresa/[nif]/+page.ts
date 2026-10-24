@@ -1,4 +1,4 @@
-import { api, type Company, type ContractRow, type SupplierDetail } from '$lib/api';
+import { api, type Company, type ContractRow, type SupplierDetail } from '#lib/api.ts';
 import type { PageLoad } from './$types';
 
 export const load: PageLoad = async ({ params, fetch: _f }) => {

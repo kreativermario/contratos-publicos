@@ -1,6 +1,6 @@
 <script lang="ts">
-	import echarts from '$lib/echarts';
-	import { t } from '$lib/messages';
+	import echarts from '#lib/echarts.ts';
+	import { t } from '#lib/messages.ts';
 	import { onMount } from 'svelte';
 
 	// This ~25-line wrapper is the entire cost of Svelte not having vue-echarts.

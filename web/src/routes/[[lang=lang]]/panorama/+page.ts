@@ -1,4 +1,4 @@
-import { api, type DistrictRow, type MandateMapRow, type PartyRow } from '$lib/api';
+import { api, type DistrictRow, type MandateMapRow, type PartyRow } from '#lib/api.ts';
 import type { PageLoad } from './$types';
 
 export const load: PageLoad = async ({ fetch: _f }) => {

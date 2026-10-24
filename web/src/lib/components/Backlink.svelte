@@ -7,7 +7,7 @@
 	 * gone and the only route back is the browser's own button. This puts the
 	 * trail back on the page: where you came from, and the place it belongs to.
 	 */
-	import { t } from '$lib/messages';
+	import { t } from '#lib/messages.ts';
 
 	let { href, label, secondary = null }: {
 		href: string;

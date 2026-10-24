@@ -6,7 +6,7 @@
 	 * the same firm several ways), so it renders as plain text rather than as a
 	 * link that would land on the wrong page or on nothing.
 	 */
-	import { L, t } from '$lib/messages';
+	import { L, t } from '#lib/messages.ts';
 
 	let { parties = [], names = [], buyer = null }: {
 		parties?: { name: string; nif: string | null }[];

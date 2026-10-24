@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { L, t } from '$lib/messages';
+	import { L, t } from '#lib/messages.ts';
 
 	// `caveats` are keys, not sentences: the API stopped shipping prose when the
 	// site went bilingual. An unknown key renders as itself, which is visible.

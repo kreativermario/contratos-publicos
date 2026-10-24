@@ -1,29 +1,29 @@
 <script lang="ts">
 	import { goto, replaceState } from '$app/navigation';
-	import { keepInView } from '$lib/keepInView';
+	import { keepInView } from '#lib/keepInView.ts';
 	import { page } from '$app/state';
-	import { api, signal, unmeasurable, verdict, type Company, type ContractRow } from '$lib/api';
-	import Chart from '$lib/Chart.svelte';
-	import CompanyProfile from '$lib/components/CompanyProfile.svelte';
-	import ContractsTable from '$lib/components/ContractsTable.svelte';
-	import Parties from '$lib/components/Parties.svelte';
-	import SuppliersTable from '$lib/components/SuppliersTable.svelte';
-	import { categoryNameOf, graphOption, mapOption, sectorCategories, statBarOption, topSuppliersOption } from '$lib/charts';
-	import BigIndex from '$lib/components/BigIndex.svelte';
-	import Flags from '$lib/components/Flags.svelte';
-	import Footer from '$lib/components/Footer.svelte';
-	import MandateTimeline from '$lib/components/MandateTimeline.svelte';
-	import Nav from '$lib/components/Nav.svelte';
-	import SignalCard from '$lib/components/SignalCard.svelte';
-	import Skeleton from '$lib/components/Skeleton.svelte';
-	import SkeletonTable from '$lib/components/SkeletonTable.svelte';
-	import StatTable from '$lib/components/StatTable.svelte';
-	import echarts from '$lib/echarts';
-	import { dateShort, eur, eurShort, eurShortParts, nearLimitLabel, novaSentence, num, pct, shortMunicipality } from '$lib/format';
-	import { L, locale, t } from '$lib/messages';
+	import { api, signal, unmeasurable, verdict, type Company, type ContractRow } from '#lib/api.ts';
+	import Chart from '#lib/Chart.svelte';
+	import CompanyProfile from '#lib/components/CompanyProfile.svelte';
+	import ContractsTable from '#lib/components/ContractsTable.svelte';
+	import Parties from '#lib/components/Parties.svelte';
+	import SuppliersTable from '#lib/components/SuppliersTable.svelte';
+	import { categoryNameOf, graphOption, mapOption, sectorCategories, statBarOption, topSuppliersOption } from '#lib/charts.ts';
+	import BigIndex from '#lib/components/BigIndex.svelte';
+	import Flags from '#lib/components/Flags.svelte';
+	import Footer from '#lib/components/Footer.svelte';
+	import MandateTimeline from '#lib/components/MandateTimeline.svelte';
+	import Nav from '#lib/components/Nav.svelte';
+	import SignalCard from '#lib/components/SignalCard.svelte';
+	import Skeleton from '#lib/components/Skeleton.svelte';
+	import SkeletonTable from '#lib/components/SkeletonTable.svelte';
+	import StatTable from '#lib/components/StatTable.svelte';
+	import echarts from '#lib/echarts.ts';
+	import { dateShort, eur, eurShort, eurShortParts, nearLimitLabel, novaSentence, num, pct, shortMunicipality } from '#lib/format.ts';
+	import { L, locale, t } from '#lib/messages.ts';
 
-	import { narrow } from '$lib/narrow.svelte';
-	import { reveal } from '$lib/reveal';
+	import { narrow } from '#lib/narrow.svelte.ts';
+	import { reveal } from '#lib/reveal.ts';
 
 	import { _MAX_SPAN, type Loaded } from './+page';
 
@@ -65,7 +65,7 @@
 	let tabsEl = $state<HTMLElement | undefined>();
 
 	function setTab(id: TabId) {
-		const url = new URL(page.url);
+		const url = new URL(page.url.href);
 		id === 'geral' ? url.searchParams.delete('tab') : url.searchParams.set('tab', id);
 		// SHALLOW, not goto. `load` reads url.searchParams for the year window, so
 		// SvelteKit treats the whole URL as a dependency and re-runs it on any
@@ -119,21 +119,21 @@
 	/** The exact-date window a mandate sets. Clearing it is part of every other
 	 *  window change, or a year chip would silently keep a term's dates. */
 	function setDates(from?: string, to?: string) {
-		const url = new URL(page.url);
+		const url = new URL(page.url.href);
 		url.searchParams.delete('from');
 		url.searchParams.delete('to');
 		from ? url.searchParams.set('de', from) : url.searchParams.delete('de');
 		to ? url.searchParams.set('ate', to) : url.searchParams.delete('ate');
-		goto(`?${url.searchParams}`, { keepFocus: true, noScroll: true });
+		goto(`?${url.searchParams}`, { reset: false });
 	}
 
 	function setWindow(from?: number, to?: number) {
-		const url = new URL(page.url);
+		const url = new URL(page.url.href);
 		url.searchParams.delete('de');
 		url.searchParams.delete('ate');
 		from ? url.searchParams.set('from', String(from)) : url.searchParams.delete('from');
 		to ? url.searchParams.set('to', String(to)) : url.searchParams.delete('to');
-		goto(url, { replaceState: true, keepFocus: true, noScroll: true });
+		goto(url, { replace: true, reset: false });
 	}
 
 	function preset(n: number) {
@@ -275,10 +275,10 @@
 		}
 		const value = datum?.name;
 		if (!value) return;
-		const params = new URLSearchParams(page.url.searchParams);
+		const params = new URLSearchParams(page.url.search);
 		params.set('tab', 'contratos');
 		params.set(grouping === 'sector' ? 'sector' : 'procedure', value);
-		goto(`?${params}`, { noScroll: false, keepFocus: false });
+		goto(`?${params}`, { reset: true });
 	}
 	const newcomerKnown = $derived(data.suppliers.some((s) => s.newcomer !== null));
 

@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { afterNavigate, goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import type { Municipality } from '$lib/api';
-	import { byShortName, shortMunicipality } from '$lib/format';
-	import { L, lang, swap, t } from '$lib/messages';
+	import type { Municipality } from '#lib/api.ts';
+	import { byShortName, shortMunicipality } from '#lib/format.ts';
+	import { L, lang, swap, t } from '#lib/messages.ts';
 
 	let { municipalities = [], current, onpick }: {
 		municipalities?: Municipality[];

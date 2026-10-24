@@ -1,7 +1,7 @@
 <script lang="ts">
-	import type { Company } from '$lib/api';
-	import Skeleton from '$lib/components/Skeleton.svelte';
-	import { t } from '$lib/messages';
+	import type { Company } from '#lib/api.ts';
+	import Skeleton from '#lib/components/Skeleton.svelte';
+	import { t } from '#lib/messages.ts';
 
 	let { company, busy = false, name = '' }: {
 		company: Company | null;

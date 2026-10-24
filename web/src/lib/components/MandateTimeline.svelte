@@ -1,7 +1,7 @@
 <script lang="ts">
-	import type { Mandate } from '$lib/api';
-	import { eurShort, num, pct } from '$lib/format';
-	import { t } from '$lib/messages';
+	import type { Mandate } from '#lib/api.ts';
+	import { eurShort, num, pct } from '#lib/format.ts';
+	import { t } from '#lib/messages.ts';
 
 	let { mandates = [], onpick, activeFrom = null, activeTo = null }: {
 		mandates?: Mandate[];

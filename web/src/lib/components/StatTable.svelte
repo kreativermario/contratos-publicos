@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { keepInView } from '$lib/keepInView';
+	import { keepInView } from '#lib/keepInView.ts';
 	import { untrack } from 'svelte';
-	import Parties from '$lib/components/Parties.svelte';
-	import { api, type ContractRow, type StatRow } from '$lib/api';
-	import { eur, num, pct } from '$lib/format';
-	import { L, t } from '$lib/messages';
+	import Parties from '#lib/components/Parties.svelte';
+	import { api, type ContractRow, type StatRow } from '#lib/api.ts';
+	import { eur, num, pct } from '#lib/format.ts';
+	import { L, t } from '#lib/messages.ts';
 
 	// A distribution table: label, count, money, share of the total.
 	// Sortable on every column, and each row opens the contracts behind it.

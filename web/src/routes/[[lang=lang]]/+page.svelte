@@ -1,8 +1,8 @@
 <script lang="ts">
-	import Footer from '$lib/components/Footer.svelte';
-	import Landing from '$lib/components/Landing.svelte';
-	import Nav from '$lib/components/Nav.svelte';
-	import { t } from '$lib/messages';
+	import Footer from '#lib/components/Footer.svelte';
+	import Landing from '#lib/components/Landing.svelte';
+	import Nav from '#lib/components/Nav.svelte';
+	import { t } from '#lib/messages.ts';
 
 	let { data } = $props();
 </script>

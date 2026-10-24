@@ -91,7 +91,7 @@ Buildx way.
 PT at `/`, EN at `/en/`, from one static build and one API payload.
 
 **The route tree is `[[lang=lang]]` at the top**, an optional parameter with a
-matcher in `web/src/params/lang.ts` that accepts only `"en"`. The matcher is not
+matcher in `web/src/params.ts` that accepts only `"en"`. The matcher is not
 optional: without it SvelteKit binds `lang="faqs"` for `/faqs` and renders the
 landing page.
 
@@ -109,7 +109,7 @@ keys that only ever arrive from the API and are looked up through a template
 string. It is wired into `npm run check`, because `svelte-check` reads types,
 not strings, and would never notice.
 
-`web/scripts/check-seo.mjs` rides the same hook, over `$lib/seo.ts`: node 24
+`web/scripts/check-seo.mjs` rides the same hook, over `#lib/seo.ts`: node 24
 strips the types, so the check imports the module the site actually ships
 rather than a copy of its regex.
 
@@ -161,7 +161,8 @@ generically and strips it, so shipping a `/v2` alongside `/v1` is a change in
 container healthcheck is orchestration, not API surface, and must not move when
 a new version arrives.
 
-`root_path` comes from `API_ROOT_PATH` so the docs at `/api/docs` request
+uvicorn's root path comes from `API_ROOT_PATH` (as `UVICORN_ROOT_PATH`; FastAPI's
+own `root_path` is deprecated) so the docs at `/api/docs` request
 `/api/openapi.json` rather than `/openapi.json`, which the SPA fallback would
 otherwise answer with `index.html`.
 
@@ -669,7 +670,7 @@ the amount and the unit separately; the unit goes in a `.unit` span (Archivo
 - FastAPI behind nginx: `/api/` is proxied with the prefix stripped, so the
   docs page asked for `/openapi.json`, the SPA fallback answered with
   `index.html`, and Swagger UI reported "no valid version field". Fixed with
-  `root_path` from `API_ROOT_PATH`.
+  uvicorn's root path from `API_ROOT_PATH`.
 - `Cache-Control: public, max-age=3600` is right for data that moves nightly
   and wrong the moment a deploy changes the JSON shape: a cached response
   without the new keys renders as zeros and empty sections. Every API request
@@ -794,8 +795,12 @@ version number can be moved under you; a digest cannot.
   from ever being installed in place of ours.
 - **`web/.npmrc` sets `ignore-scripts=true`.** No dependency has an install
   script, and a postinstall is how a hijacked npm package usually runs.
-- `cookie` is overridden to 0.7.2 in `web/package.json`: Kit 2 asks for the
-  vulnerable 0.6. Drop the override with the move to Kit 3.
+- **SvelteKit 3 conventions**, since the move off Kit 2 for its advisories:
+  `#lib/...` imports (a `package.json` `imports` map, with the file extension,
+  because TypeScript does not guess one for subpath imports), environment
+  variables declared in `web/src/env.ts` and read from `$app/env/public`, and
+  route matchers in `web/src/params.ts`. `goto` takes `reset: false` where Kit 2
+  took `keepFocus` and `noScroll`.
 - Dependabot (`.github/dependabot.yml`) is what moves the pins, after a
   seven-day cooldown so a release that gets yanked never reaches a PR.
 

@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { eur } from '$lib/format';
-	import { t } from '$lib/messages';
+	import { eur } from '#lib/format.ts';
+	import { t } from '#lib/messages.ts';
 
 	/**
 	 * Patterns worth a second look on one contract.

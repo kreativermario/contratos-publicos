@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import { api, type ContractRow } from '$lib/api';
-	import Flags from '$lib/components/Flags.svelte';
-	import { keepInView } from '$lib/keepInView';
-	import Skeleton from '$lib/components/Skeleton.svelte';
-	import { dateShort, eur, num } from '$lib/format';
-	import { L, t } from '$lib/messages';
+	import { api, type ContractRow } from '#lib/api.ts';
+	import Flags from '#lib/components/Flags.svelte';
+	import { keepInView } from '#lib/keepInView.ts';
+	import Skeleton from '#lib/components/Skeleton.svelte';
+	import { dateShort, eur, num } from '#lib/format.ts';
+	import { L, t } from '#lib/messages.ts';
 
 	let { nif, initial = [], years = [], procedures = [], sectors = [], forms = [],
 		preset = {} }: {

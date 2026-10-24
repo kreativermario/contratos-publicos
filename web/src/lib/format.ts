@@ -1,5 +1,5 @@
 import { shortMunicipality } from './seo';
-import { locale, t } from '$lib/messages';
+import { locale, t } from '#lib/messages.ts';
 
 // Both languages format money the European way (EUR, comma decimals in pt-PT,
 // point decimals in en-GB). The locale follows the page, not the browser: a

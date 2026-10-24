@@ -1,4 +1,4 @@
-import { PUBLIC_SITE_URL } from '$env/static/public';
+import { PUBLIC_SITE_URL } from '$app/env/public';
 import type { RequestHandler } from './$types';
 
 // RFC 9116. The route name encodes the two literal dots: SvelteKit skips any

@@ -1,7 +1,7 @@
 import {
 	api, type Config, type ContractRow, type Mandate, type MapCell, type Municipality,
 	type Rival, type Score, type Stats, type Supplier
-} from '$lib/api';
+} from '#lib/api.ts';
 import type { PageLoad } from './$types';
 
 /** Longest window the year picker offers. Five years of one municipality is

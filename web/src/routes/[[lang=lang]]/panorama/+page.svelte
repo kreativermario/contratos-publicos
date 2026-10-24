@@ -1,18 +1,18 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { reveal } from '$lib/reveal';
-	import { narrow } from '$lib/narrow.svelte';
-	import Footer from '$lib/components/Footer.svelte';
-	import Nav from '$lib/components/Nav.svelte';
-	import { eurShort, num, pct } from '$lib/format';
-	import { L, t } from '$lib/messages';
-	import { partyColour, partyHead, partyLabel } from '$lib/parties';
-	import { api, type MandateMapRow } from '$lib/api';
-	import Chart from '$lib/Chart.svelte';
-	import Skeleton from '$lib/components/Skeleton.svelte';
-	import { mapKey, politicalMapOption, type GeoFeature, type PoliticalCell } from '$lib/charts';
-	import echarts from '$lib/echarts';
+	import { reveal } from '#lib/reveal.ts';
+	import { narrow } from '#lib/narrow.svelte.ts';
+	import Footer from '#lib/components/Footer.svelte';
+	import Nav from '#lib/components/Nav.svelte';
+	import { eurShort, num, pct } from '#lib/format.ts';
+	import { L, t } from '#lib/messages.ts';
+	import { partyColour, partyHead, partyLabel } from '#lib/parties.ts';
+	import { api, type MandateMapRow } from '#lib/api.ts';
+	import Chart from '#lib/Chart.svelte';
+	import Skeleton from '#lib/components/Skeleton.svelte';
+	import { mapKey, politicalMapOption, type GeoFeature, type PoliticalCell } from '#lib/charts.ts';
+	import echarts from '#lib/echarts.ts';
 
 	let { data } = $props();
 

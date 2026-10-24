@@ -48,6 +48,9 @@ services:
         core: ./core
     user: "10001:10001"
     env_file: .env
+    environment:
+      # uvicorn's --root-path; see docker/api.Dockerfile.
+      UVICORN_ROOT_PATH: ${API_ROOT_PATH:-/api}
     depends_on:
       db: {condition: service_healthy}
     tmpfs: ["/tmp"]

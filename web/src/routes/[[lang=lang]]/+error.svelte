@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import Footer from '$lib/components/Footer.svelte';
-	import Nav from '$lib/components/Nav.svelte';
-	import { L, t } from '$lib/messages';
+	import Footer from '#lib/components/Footer.svelte';
+	import Nav from '#lib/components/Nav.svelte';
+	import { L, t } from '#lib/messages.ts';
 
 	// Copy per status, so a 404 does not apologise for a server fault and a 500
 	// does not tell the reader they typed the address wrong.

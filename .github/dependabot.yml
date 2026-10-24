@@ -35,7 +35,7 @@ updates:
     groups:
       web: {patterns: ["*"], update-types: [minor, patch]}
     ignore:
-      # Kit 3 is a migration ($lib is removed, tsconfig changes), not a bump.
+      # A Kit major is a migration (3 removed $lib and $env), not a bump.
       - dependency-name: "@sveltejs/*"
         update-types: [version-update:semver-major]
       # svelte-check@4 peers typescript ^5 || ^6.

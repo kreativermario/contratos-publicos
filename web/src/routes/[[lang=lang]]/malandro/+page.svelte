@@ -1,7 +1,7 @@
 <script lang="ts">
-	import Footer from '$lib/components/Footer.svelte';
-	import Nav from '$lib/components/Nav.svelte';
-	import { L, t } from '$lib/messages';
+	import Footer from '#lib/components/Footer.svelte';
+	import Nav from '#lib/components/Nav.svelte';
+	import { L, t } from '#lib/messages.ts';
 </script>
 
 <svelte:head>

@@ -1,7 +1,7 @@
 <script lang="ts">
-	import type { Flag } from '$lib/api';
-	import { num, severity, severityLabel } from '$lib/format';
-	import { locale, t } from '$lib/messages';
+	import type { Flag } from '#lib/api.ts';
+	import { num, severity, severityLabel } from '#lib/format.ts';
+	import { locale, t } from '#lib/messages.ts';
 
 	let { label, blurb, flag, counted = true, reason = '' }: {
 		label: string; blurb: string; flag: Flag; counted?: boolean;

@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { navigating, page } from '$app/state';
-	import { PUBLIC_SITE_URL } from '$env/static/public';
+	import { PUBLIC_SITE_URL } from '$app/env/public';
 	import '../app.css';
-	import { lang, locale, t } from '$lib/messages';
-	import { seoUrls } from '$lib/seo';
+	import { lang, locale, t } from '#lib/messages.ts';
+	import { seoUrls } from '#lib/seo.ts';
 
 	let { children } = $props();
 

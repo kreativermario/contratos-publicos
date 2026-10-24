@@ -1,8 +1,8 @@
 <script lang="ts">
-	import Footer from '$lib/components/Footer.svelte';
-	import Nav from '$lib/components/Nav.svelte';
-	import { lang, t } from '$lib/messages';
-	import { reveal } from '$lib/reveal';
+	import Footer from '#lib/components/Footer.svelte';
+	import Nav from '#lib/components/Nav.svelte';
+	import { lang, t } from '#lib/messages.ts';
+	import { reveal } from '#lib/reveal.ts';
 </script>
 
 <svelte:head>

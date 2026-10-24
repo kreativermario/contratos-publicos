@@ -1,21 +1,21 @@
 <script lang="ts">
-	import CompanyProfile from '$lib/components/CompanyProfile.svelte';
-	import Flags from '$lib/components/Flags.svelte';
-	import Backlink from '$lib/components/Backlink.svelte';
-	import Footer from '$lib/components/Footer.svelte';
-	import Nav from '$lib/components/Nav.svelte';
-	import { api, type ContractRow } from '$lib/api';
-	import { dateShort, eur, eurShortParts, num, pct } from '$lib/format';
-	import { L, t } from '$lib/messages';
+	import CompanyProfile from '#lib/components/CompanyProfile.svelte';
+	import Flags from '#lib/components/Flags.svelte';
+	import Backlink from '#lib/components/Backlink.svelte';
+	import Footer from '#lib/components/Footer.svelte';
+	import Nav from '#lib/components/Nav.svelte';
+	import { api, type ContractRow } from '#lib/api.ts';
+	import { dateShort, eur, eurShortParts, num, pct } from '#lib/format.ts';
+	import { L, t } from '#lib/messages.ts';
 	import { untrack } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { reveal } from '$lib/reveal';
-	import { narrow } from '$lib/narrow.svelte';
-	import Chart from '$lib/Chart.svelte';
-	import Skeleton from '$lib/components/Skeleton.svelte';
-	import { mapKey, moneyMapOption, supplierYearsOption, type GeoFeature } from '$lib/charts';
-	import echarts from '$lib/echarts';
-	import { eurShort } from '$lib/format';
+	import { reveal } from '#lib/reveal.ts';
+	import { narrow } from '#lib/narrow.svelte.ts';
+	import Chart from '#lib/Chart.svelte';
+	import Skeleton from '#lib/components/Skeleton.svelte';
+	import { mapKey, moneyMapOption, supplierYearsOption, type GeoFeature } from '#lib/charts.ts';
+	import echarts from '#lib/echarts.ts';
+	import { eurShort } from '#lib/format.ts';
 
 	let { data } = $props();
 
