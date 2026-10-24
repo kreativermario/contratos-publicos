@@ -1,6 +1,6 @@
 # Onde Vai Parar
 
-**[ondevaiparar.pt](https://ondevaiparar.pt)** | [English](https://ondevaiparar.pt/en)
+**[ondevaiparar.com](https://ondevaiparar.com)** | [English](https://ondevaiparar.com/en)
 
 [![Deploy](https://img.shields.io/github/actions/workflow/status/kreativermario/contratos-publicos/deploy.yml?branch=main&label=deploy&logo=github)](https://github.com/kreativermario/contratos-publicos/actions/workflows/deploy.yml)
 [![tests](https://img.shields.io/github/actions/workflow/status/kreativermario/contratos-publicos/tests.yml?branch=main&label=tests&logo=github)](https://github.com/kreativermario/contratos-publicos/actions/workflows/tests.yml)

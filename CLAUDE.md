@@ -1,12 +1,11 @@
 # Onde Vai Parar
 
-Satirical analytics over Portuguese public contracts, at **ondevaiparar.pt**.
+Satirical analytics over Portuguese public contracts, at **ondevaiparar.com**.
 One municipality today (Odivelas by default in `.env.example`), built to take
 all 308.
 
-`ondevaiparar.com` is registered and 301s to the `.pt` at Cloudflare. The `.pt`
-is canonical everywhere: `PUBLIC_SITE_URL`, the canonical link, the hreflang
-pair, the sitemap.
+The `.com` is canonical everywhere: `PUBLIC_SITE_URL`, the canonical link, the
+hreflang pair, the sitemap. The `.pt` was dropped; nothing should point at it.
 
 **The repo is called `contratos-publicos`, not the brand.** That is deliberate.
 The name describes what the thing reads, so the next rebrand is a copy edit in
@@ -612,16 +611,17 @@ the amount and the unit separately; the unit goes in a `.unit` span (Archivo
   was concerned. They are anchors now (`Landing.svelte`), which also buys
   `data-sveltekit-preload-data="hover"` for free. The supplier and contract
   tables were already anchors, so the crawl graph flows from there.
-- **The `.com` default outlived its fix, twice.** `PUBLIC_SITE_URL` is baked in
+- **A domain default outlives its fix.** `PUBLIC_SITE_URL` is baked in
   at build time into every canonical, the hreflang pair, the sitemap and
   robots.txt, and it is spelled in **four** defaults: `web/vite.config.ts`,
   `docker/web.Dockerfile`, `.github/workflows/deploy.yml` and
-  `docker-compose.yml`. The first was corrected to the `.pt` and the others were
-  not, so production shipped the redirecting domain. Change one, check the other
+  `docker-compose.yml` (plus `web/scripts/prerender.mjs`, `.env.example` and
+  `tests.yml`). Once only the first was corrected and the others were not, so
+  production shipped the wrong domain. Change one, check the other
   three. Then check the place that beats all four: `deploy.yml` reads
   `vars.PUBLIC_SITE_URL` and only falls back to its own default, so a
   repository variable left on the old domain silently outranks every default
-  you just fixed. It did, for the whole of the `.com` era.
+  you just fixed.
 - The favicon is `static/favicon.svg`, the poster gauge, and
   `apple-touch-icon.png` is that same file rasterised at 180px. They were an
   emoji data URI and an unrelated red gauge; a browser tab and an iOS home

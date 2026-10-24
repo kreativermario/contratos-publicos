@@ -27,7 +27,7 @@ import { dirname, join } from 'node:path';
 import { seoUrls, shortMunicipality } from '../src/lib/seo.ts';
 
 const BUILD = 'build';
-const SITE = (process.env.PUBLIC_SITE_URL ?? 'https://ondevaiparar.pt').replace(/\/$/, '');
+const SITE = (process.env.PUBLIC_SITE_URL ?? 'https://ondevaiparar.com').replace(/\/$/, '');
 // Nothing is hardcoded, but a bare `npm run build` has to produce a usable site,
 // so the default is the live API. A build that cannot reach it degrades to the
 // static-only sitemap rather than failing: a data source being down must never

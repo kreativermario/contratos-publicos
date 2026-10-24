@@ -60,4 +60,4 @@ jobs:
       # failure in the sitemap only shows up here.
       - run: npm run build
         env:
-          PUBLIC_SITE_URL: https://ondevaiparar.pt
+          PUBLIC_SITE_URL: https://ondevaiparar.com

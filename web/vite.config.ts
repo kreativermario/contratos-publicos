@@ -10,7 +10,7 @@ import { defineConfig } from 'vite';
 // tsconfig does not need @types/node for one assignment.
 const nodeEnv = (globalThis as { process?: { env: Record<string, string | undefined> } })
 	.process?.env;
-if (nodeEnv && !nodeEnv.PUBLIC_SITE_URL) nodeEnv.PUBLIC_SITE_URL = 'https://ondevaiparar.pt';
+if (nodeEnv && !nodeEnv.PUBLIC_SITE_URL) nodeEnv.PUBLIC_SITE_URL = 'https://ondevaiparar.com';
 
 export default defineConfig({
 	plugins: [

@@ -12,7 +12,7 @@ COPY . ./
 # the hreflang pair, the sitemap and robots.txt, which is the one thing a
 # canonical must never be. vite.config.ts was corrected for this and this file
 # was missed, so production has been shipping the .com.
-ARG PUBLIC_SITE_URL=https://ondevaiparar.pt
+ARG PUBLIC_SITE_URL=https://ondevaiparar.com
 ENV PUBLIC_SITE_URL=$PUBLIC_SITE_URL
 # A second sitemap, for the redirecting .com, so it can be submitted to a Search
 # Console property of its own while the .pt is pending verification. Nothing else
