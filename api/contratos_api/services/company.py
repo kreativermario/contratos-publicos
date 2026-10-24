@@ -29,7 +29,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
 from contratos_core import CompanyProfile, Settings
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
@@ -86,6 +86,25 @@ _FORMS = (
 #: dot was not in the table above.
 PERSON_NIF_PREFIXES = ("1", "2", "3")
 PERSON_NIF_PAIRS = ("45",)
+
+
+def nif_checksum_ok(nif: str) -> bool:
+    """Whether the ninth digit is the mod-11 check digit of the first eight.
+
+    Every NIF the tax register issues carries one, so a string that fails it was
+    never issued and no registry can know it. Asking anyway is a wasted fetch to
+    somebody else's server plus a cached miss, which is all that walking random
+    nine-digit strings ever produced.
+    """
+    if len(nif) != 9 or not nif.isascii() or not nif.isdigit():
+        return False
+    total = sum(int(d) * w for d, w in zip(nif[:8], range(9, 1, -1)))
+    check = 11 - total % 11
+    return int(nif[8]) == (0 if check >= 10 else check)
+
+
+class LookupBudgetSpent(Exception):
+    """The public path has used its hour of registry fetches; nothing was fetched."""
 
 
 def is_person_nif(nif: str | None) -> bool:
@@ -304,6 +323,15 @@ class CompanyLookup:
             return self._as_dict(cached) if cached.found else None
         if not self.settings.company_lookup_enabled:
             return self._as_dict(cached) if cached and cached.found else None
+        # Neither of these stores anything: a miss written for a NIF we refused
+        # to look up would only grow the table and hide a real answer later.
+        if not nif_checksum_ok(nif):
+            return None
+        if not self.allow_nifpt and self._budget_spent():
+            # A stale answer beats none; with none, say why rather than "absent".
+            if cached and cached.found:
+                return self._as_dict(cached)
+            raise LookupBudgetSpent(nif)
 
         fetched = self._fetch(nif)
         self._store(nif, fetched)
@@ -314,6 +342,26 @@ class CompanyLookup:
             "nif": nif,
             "founded_exact": bool(year and year > REGISTER_FLOOR),
         }
+
+    def _budget_spent(self) -> bool:
+        """Whether the public path has used COMPANY_FETCH_PER_HOUR this hour.
+
+        Every fetch stores a row, hit or miss, so the rows stamped within the
+        last hour are the fetches made in it, by every worker at once, with no
+        counter to keep. The backfill's rows count too, which only makes this
+        stricter, and it is never blocked by it.
+        """
+        # ponytail: check-then-fetch, so concurrent workers can overshoot by a
+        # few; and a seq scan, fine while the table is one row per firm looked up.
+        # A lock or an index on fetched_at if either ever shows.
+        limit = self.settings.company_fetch_per_hour
+        if limit <= 0:
+            return False
+        since = datetime.now(timezone.utc) - timedelta(hours=1)
+        spent = self.session.scalar(
+            select(func.count()).select_from(CompanyProfile)
+            .where(CompanyProfile.fetched_at > since))
+        return spent >= limit
 
     def _stale(self, row: CompanyProfile) -> bool:
         if row.fetched_at is None:

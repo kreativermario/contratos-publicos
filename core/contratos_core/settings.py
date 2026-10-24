@@ -105,6 +105,10 @@ class Settings(BaseSettings):
     company_founded_base: str = Field("https://empresadb.pt", alias="COMPANY_FOUNDED_BASE")
     company_timeout: float = Field(6.0, alias="COMPANY_TIMEOUT")
     company_cache_days: int = Field(30, alias="COMPANY_CACHE_DAYS")
+    # Registry fetches the public request path may make per rolling hour, across
+    # every worker; 0 is no limit. nginx limits each address, and only this
+    # limits the total our one egress address sends to the registers.
+    company_fetch_per_hour: int = Field(600, alias="COMPANY_FETCH_PER_HOUR")
 
     # nif.pt carries two things no other free source does: whether the firm is
     # still active, and the concelho it is registered in. It is also the only

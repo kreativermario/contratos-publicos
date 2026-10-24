@@ -5,16 +5,23 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from ..deps import get_company_lookup
 from ..schemas import Company
-from ..services.company import CompanyLookup
+from ..services.company import CompanyLookup, LookupBudgetSpent
 
 router = APIRouter(prefix="/companies", tags=["companies"])
 
 
 @router.get("/{nif}", response_model=Company)
 def company(nif: str, lookup: CompanyLookup = Depends(get_company_lookup)):
-    if not nif.isdigit() or len(nif) != 9:
+    # isascii too: isdigit() also takes "١٢٣" and "²", which then 500 in urllib
+    if not (nif.isascii() and nif.isdigit()) or len(nif) != 9:
         raise HTTPException(400, "NIF must be nine digits")
-    found = lookup.get(nif)
+    try:
+        found = lookup.get(nif)
+    except LookupBudgetSpent:
+        # Not a 404: the register may well know this firm, we just will not ask
+        # again this hour. The client already treats any failure as "no profile".
+        raise HTTPException(503, "registry lookups paused, try later",
+                            headers={"Retry-After": "600"})
     if not found:
         raise HTTPException(404, f"no registry profile for NIF {nif}")
     return found

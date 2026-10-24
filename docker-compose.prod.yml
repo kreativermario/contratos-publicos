@@ -54,6 +54,7 @@ x-appenv: &appenv
   API_CORS_ORIGINS: ${API_CORS_ORIGINS}
   APIABERTA_KEY: ${APIABERTA_KEY}
   COMPANY_LOOKUP_ENABLED: ${COMPANY_LOOKUP_ENABLED}
+  COMPANY_FETCH_PER_HOUR: ${COMPANY_FETCH_PER_HOUR:-600}
   # The key is a credential and arrives from the GitHub environment like the
   # other three. Empty and the backfill logs that and exits, which is the
   # correct behaviour for a stack that has not been given one.

@@ -97,3 +97,50 @@ def test_nifpt_survives_a_record_with_no_cae():
                "records": {"5": {"title": "Sem CAE Lda", "geo": {}}}}
     out = parse_nifpt(payload)
     assert out["cae"] == [] and out["county"] is None
+
+
+def test_nif_check_digit():
+    from contratos_api.services.company import nif_checksum_ok
+    # Odivelas's NIF, another valid one, and one whose check digit wraps to 0
+    for nif in ("504293125", "501294104", "500000000"):
+        assert nif_checksum_ok(nif), nif
+    for nif in ("504293126", "123456788", "12345678", "50429312a", "５04293125"):
+        assert not nif_checksum_ok(nif), nif
+
+
+def test_lookup_never_fetches_an_unissued_nif():
+    from types import SimpleNamespace
+    from contratos_api.services.company import CompanyLookup
+
+    class Probe(CompanyLookup):
+        def _fetch(self, nif):
+            raise AssertionError("fetched a NIF that fails its check digit")
+
+    session = SimpleNamespace(get=lambda *a: None)
+    settings = SimpleNamespace(company_lookup_enabled=True, company_fetch_per_hour=0)
+    assert Probe(session=session, settings=settings).get("504293126") is None
+
+
+def test_spent_budget_serves_stale_or_refuses_without_fetching():
+    from datetime import datetime, timezone
+    from types import SimpleNamespace
+    from contratos_api.services.company import CompanyLookup, LookupBudgetSpent
+
+    class Probe(CompanyLookup):
+        def _fetch(self, nif):
+            raise AssertionError("fetched past the hourly budget")
+
+    settings = SimpleNamespace(company_lookup_enabled=True, company_fetch_per_hour=600,
+                               company_cache_days=30)
+    spent = lambda row: SimpleNamespace(get=lambda *a: row, scalar=lambda *a: 600)
+
+    try:
+        Probe(session=spent(None), settings=settings).get("504293125")
+        raise AssertionError("a spent budget with nothing cached must refuse, not return")
+    except LookupBudgetSpent:
+        pass
+
+    stale = SimpleNamespace(nif="504293125", found=True, fetched_at=datetime(2020, 1, 1, tzinfo=timezone.utc),
+                            name="X", sicae_name=None, legal_type=None, address=None, cae=[],
+                            founded_year=None, legal_form=None, status=None, county=None, source="ptdata")
+    assert Probe(session=spent(stale), settings=settings).get("504293125")["name"] == "X"
