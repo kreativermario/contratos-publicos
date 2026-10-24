@@ -1,4 +1,4 @@
-# Production stack for one VPS running ROOTLESS podman.
+# Production stack for one box running ROOTLESS podman.
 #
 #   podman compose -f docker-compose.prod.yml up -d
 #
@@ -9,16 +9,14 @@
 #
 # ZERO INBOUND PORTS. cloudflared dials out to Cloudflare and traffic comes back
 # down that connection, so nothing here publishes a port and nothing on the box
-# holds a certificate. The provider edge now refuses inbound traffic outright,
-# SSH included, and the deploy reaches the box over the NetBird mesh instead. Do
-# not add `ports:` to any service: nothing would answer on the public address
-# anyway, and a published port is a hole nobody is watching.
+# holds a certificate. Do not add `ports:` to any service: a published port is
+# a hole nobody is watching.
 #
 # Only DATABASE_URL has no default in core/settings.py; everything omitted here
 # falls back to the value declared there.
 #
-# SELinux stays enforcing. Every mount below is a named volume or a tmpfs, and
-# podman labels both correctly on its own. Any BIND mount added later needs :Z
+# Every mount below is a named volume or a tmpfs, and podman labels both
+# correctly on its own. Any BIND mount added later needs :Z
 # on the mount or the container reads its own files as permission denied.
 
 # MEMORY LIMITS. RAM is shared by postgres, the API, nginx, cloudflared and two
@@ -91,7 +89,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       PGDATA: /var/lib/postgresql/pgdata
     # Tuning for a small shared box, passed as flags because a conf file would
-    # be a bind mount and a bind mount would need SELinux labelling. Every
+    # be a bind mount and a bind mount would need relabelling. Every
     # number is an env var, defaults below.
     #
     # RAM is shared with the API, nginx, cloudflared and two ingest loops, so

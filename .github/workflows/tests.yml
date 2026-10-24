@@ -6,7 +6,7 @@ name: tests
 # production and a missing message key prints itself on the page.
 #
 # Callable, because the deploy gates on it: a green run is what earns a push to
-# the VPS. That is also why there is no `push: main` trigger here, which would
+# the box. That is also why there is no `push: main` trigger here, which would
 # only run the same suite twice on every merge.
 on:
   pull_request:

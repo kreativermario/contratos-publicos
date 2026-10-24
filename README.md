@@ -290,8 +290,7 @@ Authoritative files, each carrying its reasoning inline:
 [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml),
 notes kept privately, since they describe one specific machine.
 
-One small VPS running a distribution with **SELinux
-enforcing**, bootstrapped once and then never touched by hand.
+One small box, bootstrapped once and then never touched by hand.
 
 **Rootless podman, not docker.** No daemon, no root-owned socket, no
 orchestrator or build agent on the box. `podman compose` needs the docker
@@ -301,19 +300,18 @@ which is what orders the schema one-shot ahead of the API.
 
 **Zero inbound ports.** `cloudflared` runs as a container in the stack and dials
 out, so public traffic returns down that connection. The box holds no
-certificate, runs no reverse proxy of its own, and the host firewall answers on SSH
-only. Do not add a `ports:` mapping to a production service.
+certificate, runs no reverse proxy of its own, and answers on nothing inbound. Do not add a `ports:` mapping to a production service.
 
 **Images live on GHCR**, built by GitHub-hosted runners and tagged by commit
 SHA. Podman runs OCI images and does not care what built them. The deploy is an
-SSH session: render the stack `.env` from the GitHub `production` Environment,
+SSH session: render the stack `.env` from the box's GitHub Environment,
 pipe it and the compose file to the box, pull the pinned tags, `podman compose
 up -d`, then poll the API's health until it is healthy or fail the job.
 `up -d` returns as soon as the containers exist, which says nothing about
 whether the API can reach the database.
 
 Deploys fire on **`main` only**, plus manual dispatch. Every secret and every
-non-secret var lives in the GitHub `production` Environment; the non-secret half
+non-secret var lives in the box's GitHub Environment; the non-secret half
 arrives as one block in `vars.APP_ENV`, so adding a tunable is a UI edit rather
 than a workflow change.
 
@@ -322,9 +320,9 @@ policies, and `podman-restart.service` only picks up `always`.
 
 Every container runs **non-root with a read-only root filesystem**, all
 capabilities dropped and `no-new-privileges`. Writes go to tmpfs, except the
-ingest's multi-hundred-MB downloads, which use the `ingestdata` volume. SELinux
-stays enforcing: every mount is a named volume or a tmpfs, which podman labels
-on its own, and any bind mount added later needs `:Z`.
+ingest's multi-hundred-MB downloads, which use the `ingestdata` volume. Every
+mount is a named volume or a tmpfs, which podman labels on its own, and any bind
+mount added later needs `:Z`.
 
 No Node runtime in production: the frontend is a static build served by nginx.
 

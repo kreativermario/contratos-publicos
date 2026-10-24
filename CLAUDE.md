@@ -844,7 +844,7 @@ cd web && npm run check        # svelte-check plus the message parity check
 
 `.github/workflows/tests.yml` runs every one of those on CI, and **the deploy
 job needs it**: `tests` is a `workflow_call` job that `build-and-push` depends
-on, so nothing reaches GHCR or the VPS from a red suite. The Python half needs
+on, so nothing reaches GHCR or the box from a red suite. The Python half needs
 no database, only a syntactically valid `DATABASE_URL`, because `Settings`
 demands one and nothing in the suite connects; the root `conftest.py` supplies
 it, so CI and a laptop run the identical command. The runtime images no longer
@@ -872,10 +872,11 @@ one.
 and carry the reasoning inline.
 The shape:
 
-**One small VPS**, sized for the municipality count currently loaded, running a
-distribution with **SELinux enforcing**. Host bootstrap (swap, firewall, deploy
-user, unattended security updates) is deliberately kept out of this repository:
-it documents one specific machine and nothing here needs it to build or run.
+**One small box**, sized for the municipality count currently loaded. Host
+bootstrap and anything describing the hosting itself is deliberately kept out of
+this repository, which is public: nothing here needs it to build or run, and it
+would only be a map for somebody else. Keep commits, comments and docs generic
+on this point.
 
 **Rootless podman, not docker.** No daemon, no root-owned socket, no
 orchestrator on the box. `podman compose` needs the docker compose v2 binary as
@@ -884,28 +885,18 @@ its provider, because `podman-compose` does not implement
 which is what orders the schema one-shot ahead of the API.
 
 **Zero inbound ports.** `cloudflared` runs inside the stack and dials out, so
-public traffic returns down that connection. The box holds no certificate, and
-the OVH edge firewall now refuses everything inbound: established TCP, a few UDP
-source ports and ICMP are all that pass, so the public address answers on
-nothing, SSH included. Do not add a `ports:` mapping to any prod service: the
-firewall expects nothing there, so a published port is a hole nobody is
-watching.
+public traffic returns down that connection. The box holds no certificate and
+answers on nothing inbound. Do not add a `ports:` mapping to any prod service: a
+published port is a hole nobody is watching.
 
 **Images on GHCR**, built by GitHub-hosted runners with Buildx and tagged by
 commit SHA. Podman runs OCI images and does not care what built them.
 
-**The deploy is an SSH session over the NetBird mesh.** Since the edge was
-closed there is no route to port 22 on the public address, so the job enrols the
-runner as an ephemeral peer in the `ci-runners` group and talks to the box's
-NetBird address (`vars.DEPLOY_HOST`). The peer NAME does not work from a
-runner: the agent connects but never takes over the runner's resolver, and
-`ci-runners` is in no nameserver group, so `.netbird.selfhosted` does not
-resolve there. Re-enrolling the VPS changes that address and breaks the
-deploy until the variable is updated. That group is defined in the homelab terraform,
-not here, and reaches tcp/22 on this one host and nothing else; `bidirectional`
-is off, so the box has no path back to the runner. The peer deletes itself
-minutes after the job ends, which is why the workflow has no teardown step. Then
-the session does what it always did: render `.env` from the GitHub Environment,
+**The deploy is an SSH session over a private mesh.** The runner joins as an
+ephemeral peer and talks to `vars.DEPLOY_HOST`, which is an address, not a
+name: the runner's resolver is never taken over, so mesh names do not resolve
+there. The peer deletes itself after the job ends, which is why the workflow
+has no teardown step. Then the session renders `.env` from the GitHub Environment,
 pipe it and the compose file to the box, `podman compose pull && up -d`, then
 poll the API's health until it is healthy or fail the job. `up -d` returns as
 soon as the containers exist, which says nothing about whether the API can reach
@@ -918,13 +909,8 @@ arrives as one block in `vars.APP_ENV`, so adding a tunable is a UI edit rather
 than a change to the workflow.
 
 **Which boxes get deployed is the repository variable `DEPLOY_TARGETS`**, a JSON
-list of Environment names (`["production"]` when unset), fanned out as a matrix
-with `fail-fast: false`. Today that is `production` (the OVH VPS) and `homelab`
-(apps01, alone on a DMZ VLAN). apps01 runs no NetBird agent, because the DMZ
-cannot reach the management server; it is a network resource behind the homelab
-routing peers, so its `DEPLOY_HOST` is its LAN address, not a `100.x` one. It is
-bootstrapped by the same script as the VPS, with the sections the homelab's own
-Ansible already owns switched off. Adding a box is an Environment plus a list
+list of Environment names (`["homelab"]` when unset), fanned out as a matrix
+with `fail-fast: false`. Adding a box is an Environment plus a list
 entry. Two boxes must not share a tunnel token or a nif.pt key: the first
 splits readers across two databases, the second halves the daily quota.
 
@@ -936,8 +922,7 @@ on the deploy user is the other half: without it systemd tears down
 `/run/user/$uid` when the SSH session ends and takes the socket and the
 containers with it.
 
-The host enforces SELinux and the stack does not touch it. Every mount in the stack is a named
-volume or a tmpfs, which podman labels on its own. **Any bind mount added later
+Every mount in the stack is a named volume or a tmpfs, which podman labels on its own. **Any bind mount added later
 needs `:Z`** or the container reads its own files as permission denied.
 
 **Harbor, Vault, Dockhand and haproxy are gone.** Do not reintroduce them in
