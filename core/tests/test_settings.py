@@ -51,3 +51,12 @@ def test_database_url_gets_psycopg3_driver():
 def test_thresholds_are_tunable():
     s = build(AD_LIMIT_SERVICES="25000", CONSULTA_PREVIA_LIMIT="80000")
     assert s.thresholds == (25000.0, 30000.0, 80000.0)
+
+
+def test_statement_timeout_is_api_only_and_bounded():
+    from contratos_core.db import statement_timeout_args
+    assert build().api_statement_timeout_ms == 30_000
+    assert build(API_STATEMENT_TIMEOUT_MS="5000").api_statement_timeout_ms == 5000
+    assert statement_timeout_args(5000) == {"options": "-c statement_timeout=5000"}
+    # 0 is what ingest and the one-shot get: no option at all, not a zero limit
+    assert statement_timeout_args(0) == {}

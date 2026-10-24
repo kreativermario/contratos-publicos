@@ -20,7 +20,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        app.state.database = Database(settings)
+        app.state.database = Database(
+            settings, statement_timeout_ms=settings.api_statement_timeout_ms)
         app.state.settings = settings
         log.info("connected to postgres")
         yield

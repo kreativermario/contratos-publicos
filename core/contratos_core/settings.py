@@ -23,6 +23,10 @@ class Settings(BaseSettings):
 
     database_url: str = Field(..., alias="DATABASE_URL")
     db_pool_max: int = Field(10, alias="DB_POOL_MAX")
+    # The longest a single API query may run, in ms; 0 is no limit. Only the API
+    # sets it: ingest, the schema one-shot and the backfill legitimately run for
+    # minutes and share this Database class.
+    api_statement_timeout_ms: int = Field(30_000, alias="API_STATEMENT_TIMEOUT_MS")
 
     # ---- ingest scope ----
     municipality_nifs: CsvList = Field(default_factory=list, alias="MUNICIPALITY_NIFS")

@@ -210,6 +210,8 @@ services:
       WEB_CONCURRENCY: ${API_WORKERS:-1}
       # uvicorn's --root-path, the way WEB_CONCURRENCY is its --workers.
       UVICORN_ROOT_PATH: ${API_ROOT_PATH:-/api}
+      # Here and not in &appenv: migrate and the loops run for minutes on purpose.
+      API_STATEMENT_TIMEOUT_MS: ${API_STATEMENT_TIMEOUT_MS:-30000}
     depends_on:
       db: {condition: service_healthy}
       migrate: {condition: service_completed_successfully}

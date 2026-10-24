@@ -43,8 +43,24 @@ def missing_indexes(table: Table, have: set[str]) -> list:
     return [i for i in table.indexes if i.name not in have]
 
 
+def statement_timeout_args(timeout_ms: int) -> dict:
+    """Connect arguments that make Postgres cancel any statement past `timeout_ms`.
+
+    The API runs on one small pool and its handlers are sync, so a request that
+    nginx or the reader has given up on keeps its connection until the query
+    ends. Nothing else bounds that: an anonymous client varying the query string
+    misses every cache, and ten slow national aggregates would hold all ten
+    connections. Postgres cancelling the statement is the one bound that holds
+    whatever the client does. 0 sets nothing, which is what ingest wants.
+    """
+    if timeout_ms <= 0:
+        return {}
+    return {"options": f"-c statement_timeout={int(timeout_ms)}"}
+
+
 class Database:
-    def __init__(self, settings: Settings, *, echo: bool = False) -> None:
+    def __init__(self, settings: Settings, *, echo: bool = False,
+                 statement_timeout_ms: int = 0) -> None:
         self._settings = settings
         self.engine: Engine = create_engine(
             settings.database_url,
@@ -53,6 +69,7 @@ class Database:
             pool_pre_ping=True,
             future=True,
             echo=echo,
+            connect_args=statement_timeout_args(statement_timeout_ms),
         )
         self._session_factory = sessionmaker(bind=self.engine, expire_on_commit=False, future=True)
 
