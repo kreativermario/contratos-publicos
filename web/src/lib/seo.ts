@@ -21,3 +21,14 @@ export function seoUrls(site: string, pathname: string): { pt: string; en: strin
  */
 export const shortMunicipality = (name: string): string =>
 	name.replace(/^(?:Munic[ií]pio|C[\u00e2a]mara\s+Municipal)\s+d[aeo]\s*/i, '').trim();
+
+/** JSON for an inline `<script type="application/ld+json">`.
+ *
+ *  JSON.stringify leaves `<` alone, so a council name carrying `</script>`
+ *  closes the element and the rest of the name is parsed as HTML in the head
+ *  of a prerendered page. The names come from IMPIC verbatim, and ingest
+ *  unescapes them, so `&lt;/script&gt;` upstream arrives as the real tag.
+ *  `<` is the same character to a JSON parser and nothing to an HTML one.
+ */
+export const ldJson = (data: unknown): string =>
+	JSON.stringify(data).replace(/</g, '\\u003c');

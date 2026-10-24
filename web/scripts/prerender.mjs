@@ -24,7 +24,7 @@
  */
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { seoUrls, shortMunicipality } from '../src/lib/seo.ts';
+import { ldJson, seoUrls, shortMunicipality } from '../src/lib/seo.ts';
 
 const BUILD = 'build';
 const SITE = (process.env.PUBLIC_SITE_URL ?? 'https://ondevaiparar.com').replace(/\/$/, '');
@@ -109,7 +109,7 @@ function rewriteHead(shell, { lang, title, description, canonical, alternates, j
 		`<link rel="canonical" href="${esc(canonical)}" />`,
 		...alternates.map(([hreflang, href]) =>
 			`<link rel="alternate" hreflang="${hreflang}" href="${esc(href)}" />`),
-		`<script type="application/ld+json">${JSON.stringify(jsonLd)}</script>`
+		`<script type="application/ld+json">${ldJson(jsonLd)}</script>`
 	].join('\n\t\t');
 
 	return html.replace('</head>', `\t${links}\n\t</head>`);
@@ -118,7 +118,7 @@ function rewriteHead(shell, { lang, title, description, canonical, alternates, j
 /** Structured data only, for the one file that must stay route-agnostic. */
 function addJsonLd(shell, jsonLd) {
 	return shell.replace('</head>',
-		`\t<script type="application/ld+json">${JSON.stringify(jsonLd)}</script>\n\t</head>`);
+		`\t<script type="application/ld+json">${ldJson(jsonLd)}</script>\n\t</head>`);
 }
 
 /* ---- structured data ------------------------------------------------------

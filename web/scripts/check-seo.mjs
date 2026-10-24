@@ -1,6 +1,6 @@
 // Node 24 strips the types, so the real module is tested rather than a copy.
 import assert from 'node:assert/strict';
-import { seoUrls, shortMunicipality } from '../src/lib/seo.ts';
+import { ldJson, seoUrls, shortMunicipality } from '../src/lib/seo.ts';
 
 const S = 'https://exemplo.pt';
 const cases = [
@@ -33,4 +33,11 @@ for (const [full, short] of names) {
 	assert.equal(shortMunicipality(full), short, full);
 }
 
-console.log(`ok: ${cases.length} canonical pairs, ${names.length} short names`);
+// A council name is IMPIC's text, not ours. In the JSON-LD block it must not be
+// able to end the script element, and must still read back as the same name.
+const hostile = { name: 'Teste</script><meta http-equiv=refresh content=0;url=https://x.invalid/>' };
+const ld = ldJson(hostile);
+assert.ok(!ld.includes('<'), 'ld+json carries a raw <');
+assert.deepEqual(JSON.parse(ld), hostile);
+
+console.log(`ok: ${cases.length} canonical pairs, ${names.length} short names, ld+json escaped`);
