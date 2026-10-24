@@ -270,7 +270,7 @@ services:
   # depends on it, and a tunnel that cannot connect is visible in Cloudflare.
   cloudflared:
     <<: *hardening
-    image: ${CLOUDFLARED_IMAGE:-docker.io/cloudflare/cloudflared:2026.9.1}
+    image: ${CLOUDFLARED_IMAGE:-docker.io/cloudflare/cloudflared:2026.10.3}
     mem_limit: ${MEM_CLOUDFLARED:-128m}
     # The image already ships USER 65532 and an entrypoint of
     # `cloudflared --no-autoupdate`; the uid is pinned here anyway so a base
