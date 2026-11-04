@@ -18,7 +18,7 @@ services:
   # docker-compose.prod.yml, where the long version of this is written out.
   db:
     <<: *hardening
-    image: docker.io/library/postgres:18-alpine3.24@sha256:898c60cb390d1085bc97bdd6a1ae968757421df394b071848b52b1c09c89d6a5
+    image: docker.io/library/postgres:18-alpine3.24@sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5
     user: "70:70"                      # postgres uid in the alpine variant
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
