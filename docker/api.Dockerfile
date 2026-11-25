@@ -1,8 +1,8 @@
 # Context is ./api ; the shared core package arrives as a named build context.
 #   docker compose build api
-FROM ghcr.io/astral-sh/uv:0.13.5@sha256:32a7bb39b496babbd997b0a39a4d66c126bdaf5661b302bf6f06abda8deca6ff AS uv
+FROM ghcr.io/astral-sh/uv:0.13.10@sha256:a3ea1357342c1a4bf9a0c53a3deb1b55379aefa037338d8113d5771efa01774f AS uv
 
-FROM python:3.13-alpine@sha256:bf12ecc0bea3f171d55145dd02c78b5eeb09f30ee2ac9cc2b4c9e4e8f5e30741 AS build
+FROM python:3.15-alpine@sha256:0f9552bb28711333da16915ec146f5e6bb44a7fdac9ced15dc17c2e0206346dd AS build
 COPY --from=uv /uv /bin/uv
 WORKDIR /src
 ENV UV_LINK_MODE=copy \
@@ -15,7 +15,7 @@ RUN uv venv /venv \
  && VIRTUAL_ENV=/venv uv pip install --require-hashes -r api/requirements.txt \
  && VIRTUAL_ENV=/venv uv pip install --no-deps --no-build-isolation ./core ./api
 
-FROM python:3.13-alpine@sha256:bf12ecc0bea3f171d55145dd02c78b5eeb09f30ee2ac9cc2b4c9e4e8f5e30741
+FROM python:3.15-alpine@sha256:0f9552bb28711333da16915ec146f5e6bb44a7fdac9ced15dc17c2e0206346dd
 RUN adduser -D -u 10001 -h /home/app app
 COPY --from=build /venv /venv
 ENV PATH="/venv/bin:$PATH" \
